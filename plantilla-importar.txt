@@ -1,0 +1,8 @@
+# Copia las líneas (sin esta) en Más → Importar viajes desde una lista
+# Formato:  País; Ciudad; fecha inicio; fecha fin; nota
+# Para la lista de sueños, empieza la línea con *
+Italia; Roma; 12/04/2023; 16/04/2023; Primer viaje con amigas
+Portugal; Lisboa; 2022-08-01; 2022-08-05; Pasteles de Belém
+Japón; Tokio; 01/10/2024; 12/10/2024;
+* Islandia; ; ; ; Ver auroras boreales
+* Perú; Cuzco; ; ; Machu Picchu

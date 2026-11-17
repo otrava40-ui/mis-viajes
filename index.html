@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Mis Viajes</title>
+  <meta name="theme-color" content="#f6f1e7">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Mis Viajes">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="css/app.css">
+  <script src="js/config.js"></script>
+  <script src="vendor/d3.min.js" defer></script>
+  <script src="js/countries.js" defer></script>
+  <script src="js/store.js" defer></script>
+  <script src="js/map.js" defer></script>
+  <script src="js/app.js" defer></script>
+</head>
+<body>
+  <div id="login" hidden></div>
+
+  <header class="cabecera">
+    <div>
+      <div class="saludo" id="saludo"></div>
+      <h1 id="titulo">Mis Viajes</h1>
+    </div>
+  </header>
+
+  <div id="banner-prueba" class="banner" hidden>Modo prueba · los datos se guardan solo en este navegador</div>
+  <div id="instalar" class="banner instalar" hidden></div>
+
+  <main>
+    <!-- MAPA -->
+    <section class="vista" id="vista-mapa">
+      <div id="cuenta-atras" class="cuenta-atras" hidden></div>
+      <div id="stats" class="stats"></div>
+      <div class="barra-mundo"><i id="barra-mundo"></i></div>
+      <div class="mapa-marco">
+        <div id="mapa" class="mapa"><p class="vacio">Cargando mapa…</p></div>
+        <div class="mapa-botones">
+          <button id="btn-rasca" class="btn-mapa" title="Modo rasca">✦ Rasca</button>
+          <button id="btn-centrar" class="btn-mapa" title="Ver mundo entero">⤢</button>
+        </div>
+      </div>
+      <div class="leyenda">
+        <span><i style="background:var(--visitado)"></i>Visitado</span>
+        <span><i style="background:var(--deseo)"></i>Quiero ir</span>
+        <span><i style="background:var(--casa)"></i><em id="leyenda-casa">Casa</em></span>
+      </div>
+      <p class="pista">Toca un país para ver tus viajes · pellizca para hacer zoom</p>
+    </section>
+
+    <!-- VIAJES -->
+    <section class="vista" id="vista-viajes" hidden>
+      <h2 class="vista-tit">Mis viajes</h2>
+      <div class="segmentado" id="seg-viajes">
+        <button data-sub="linea" class="on">Cronología</button>
+        <button data-sub="galeria">Fotos</button>
+        <button data-sub="instax">Instax</button>
+      </div>
+      <div id="viajes-contenido"></div>
+    </section>
+
+    <!-- PASAPORTE -->
+    <section class="vista" id="vista-pasaporte" hidden>
+      <div class="pasaporte">
+        <div class="pasaporte-cab">
+          <div class="pasaporte-escudo">🌍</div>
+          <div><small>PASAPORTE DE VIAJES</small><b id="pasaporte-nombre"></b><span id="pasaporte-num"></span></div>
+        </div>
+        <div id="sellos" class="sellos"></div>
+      </div>
+      <h2 class="vista-tit">Logros <small id="logros-num"></small></h2>
+      <div id="logros" class="logros"></div>
+    </section>
+
+    <!-- SUEÑOS -->
+    <section class="vista" id="vista-suenos" hidden>
+      <h2 class="vista-tit">Próximos destinos</h2>
+      <div id="suenos-lista"></div>
+    </section>
+
+    <!-- MÁS -->
+    <section class="vista" id="vista-mas" hidden>
+      <h2 class="vista-tit">🎒 Mi maleta</h2>
+      <div id="maleta" class="tarjeta"></div>
+      <h2 class="vista-tit">🔗 Compartir</h2>
+      <div id="compartir" class="tarjeta"></div>
+      <h2 class="vista-tit">⚙️ Ajustes</h2>
+      <div class="tarjeta">
+        <button class="fila-opcion" id="btn-mensaje">🎄 Ver el mensaje de Navidad</button>
+        <button class="fila-opcion" id="btn-importar">📥 Importar viajes desde una lista</button>
+        <button class="fila-opcion" id="btn-exportar">💾 Descargar copia de seguridad</button>
+        <div id="cuenta"></div>
+      </div>
+    </section>
+  </main>
+
+  <button id="fab" class="fab" aria-label="Añadir">＋</button>
+
+  <nav class="tabs">
+    <button class="tab activa" data-vista="mapa"><span>🗺️</span>Mapa</button>
+    <button class="tab" data-vista="viajes"><span>📖</span>Viajes</button>
+    <button class="tab" data-vista="pasaporte"><span>🛂</span>Pasaporte</button>
+    <button class="tab" data-vista="suenos"><span>✨</span>Sueños</button>
+    <button class="tab" data-vista="mas"><span>🎒</span>Más</button>
+  </nav>
+</body>
+</html>
