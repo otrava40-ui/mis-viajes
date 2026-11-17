@@ -94,13 +94,13 @@
   }
 
   // ---------- Conversión fila <-> objeto ----------
-  const filaAViaje = f => ({ id: f.id, pais: f.pais, ciudad: f.ciudad || '', lat: f.lat, lon: f.lon, inicio: f.inicio || '', fin: f.fin || '', diario: f.diario || '', sola: !!f.sola, fotos: [] });
-  const viajeAFila = v => ({ pais: v.pais, ciudad: v.ciudad || null, lat: v.lat ?? null, lon: v.lon ?? null, inicio: v.inicio || null, fin: v.fin || null, diario: v.diario || null, sola: !!v.sola });
-  const filaADeseo = f => ({ id: f.id, pais: f.pais, ciudad: f.ciudad || '', lat: f.lat, lon: f.lon, nota: f.nota || '', fecha: f.fecha || '' });
-  const deseoAFila = d => ({ pais: d.pais, ciudad: d.ciudad || null, lat: d.lat ?? null, lon: d.lon ?? null, nota: d.nota || null, fecha: d.fecha || null });
+  const filaAViaje = f => ({ id: f.id, pais: f.pais, ciudad: f.ciudad || '', lat: f.lat, lon: f.lon, inicio: f.inicio || '', fin: f.fin || '', diario: f.diario || '', sola: !!f.sola, extra: f.extra || {}, fotos: [] });
+  const viajeAFila = v => ({ pais: v.pais, ciudad: v.ciudad || null, lat: v.lat ?? null, lon: v.lon ?? null, inicio: v.inicio || null, fin: v.fin || null, diario: v.diario || null, sola: !!v.sola, extra: v.extra || {} });
+  const filaADeseo = f => ({ id: f.id, pais: f.pais, ciudad: f.ciudad || '', lat: f.lat, lon: f.lon, nota: f.nota || '', fecha: f.fecha || '', extra: f.extra || {} });
+  const deseoAFila = d => ({ pais: d.pais, ciudad: d.ciudad || null, lat: d.lat ?? null, lon: d.lon ?? null, nota: d.nota || null, fecha: d.fecha || null, extra: d.extra || {} });
 
   // ---------- API pública ----------
-  const datos = { viajes: [], deseos: [], ajustes: { maleta: [], compartir: false, compartir_diario: false, token: '' } };
+  const datos = { viajes: [], deseos: [], ajustes: { maleta: [], compartir: false, compartir_diario: false, token: '', extra: {} } };
 
   const Store = {
     MODO_PRUEBA,
@@ -133,7 +133,7 @@
       if (MODO_PRUEBA) {
         this.cargarCache();
         for (const v of datos.viajes) for (const f of v.fotos) {
-          if (!f.url) { f.url = await idb.get(f.id + '-g') || ''; f.thumbUrl = await idb.get(f.id + '-p') || f.url; }
+          if (!f.url) { if (f.audio) f.url = await idb.get(f.id + '-a') || ''; else { f.url = await idb.get(f.id + '-g') || ''; f.thumbUrl = await idb.get(f.id + '-p') || f.url; } }
         }
         return;
       }
@@ -152,10 +152,10 @@
       datos.viajes = viajes.map(f => (porId[f.id] = filaAViaje(f)));
       fotos.forEach(f => {
         const v = porId[f.viaje_id];
-        if (v) v.fotos.push({ id: f.id, path: f.ruta, thumb: f.miniatura, instax: !!f.instax, url: urls[f.ruta] || '', thumbUrl: urls[f.miniatura] || urls[f.ruta] || '' });
+        if (v) v.fotos.push({ id: f.id, path: f.ruta, thumb: f.miniatura, instax: !!f.instax, billete: !!f.billete, audio: !!f.audio, url: urls[f.ruta] || '', thumbUrl: urls[f.miniatura] || urls[f.ruta] || '' });
       });
       datos.deseos = deseos.map(filaADeseo);
-      datos.ajustes = { maleta: aj.maleta || [], compartir: !!aj.compartir, compartir_diario: !!aj.compartir_diario, token: aj.token };
+      datos.ajustes = { maleta: aj.maleta || [], compartir: !!aj.compartir, compartir_diario: !!aj.compartir_diario, token: aj.token, extra: aj.extra || {} };
       ls.set(LS_CACHE, datos);
     },
 
@@ -191,7 +191,7 @@
       this.guardarLocal();
     },
 
-    async subirFoto(viaje, file, instax) {
+    async subirFoto(viaje, file, instax, billete) {
       const grande = await comprimir(file, 1600, 0.8);
       const peque = await comprimir(file, 480, 0.72);
       const id = uid();
@@ -199,7 +199,7 @@
       if (MODO_PRUEBA) {
         const g = await blobADataURL(await comprimir(file, 1000, 0.7)), p = await blobADataURL(peque);
         await idb.put(id + '-g', g); await idb.put(id + '-p', p);
-        foto = { id, instax: !!instax, url: g, thumbUrl: p };
+        foto = { id, instax: !!instax, billete: !!billete, url: g, thumbUrl: p };
       } else {
         const base = `${sesion.user.id}/${viaje.id}/${id}`;
         for (const [ruta, blob] of [[base + '.jpg', grande], [base + '-p.jpg', peque]]) {
@@ -208,12 +208,46 @@
           });
           if (!r.ok) throw new Error('No se pudo subir la foto: ' + await r.text());
         }
-        const fila = (await rest('fotos', { method: 'POST', body: { viaje_id: viaje.id, ruta: base + '.jpg', miniatura: base + '-p.jpg', instax: !!instax } }))[0];
-        foto = { id: fila.id, path: fila.ruta, thumb: fila.miniatura, instax: !!instax, url: URL.createObjectURL(grande), thumbUrl: URL.createObjectURL(peque) };
+        const fila = (await rest('fotos', { method: 'POST', body: { viaje_id: viaje.id, ruta: base + '.jpg', miniatura: base + '-p.jpg', instax: !!instax, billete: !!billete } }))[0];
+        foto = { id: fila.id, path: fila.ruta, thumb: fila.miniatura, instax: !!instax, billete: !!billete, url: URL.createObjectURL(grande), thumbUrl: URL.createObjectURL(peque) };
       }
       viaje.fotos.push(foto);
       this.guardarLocal();
       return foto;
+    },
+
+    async subirAudio(viaje, blob, duracion) {
+      const id = uid();
+      let nota;
+      if (MODO_PRUEBA) {
+        const url = await blobADataURL(blob);
+        await idb.put(id + '-a', url);
+        nota = { id, audio: true, url, dur: duracion };
+      } else {
+        const ext = (blob.type || '').includes('mp4') ? 'm4a' : 'webm';
+        const ruta = `${sesion.user.id}/${viaje.id}/${id}.${ext}`;
+        const r = await fetch(`${URL_SB}/storage/v1/object/${BUCKET}/${ruta}`, { method: 'POST', headers: await cabeceras({ 'Content-Type': blob.type || 'audio/webm' }), body: blob });
+        if (!r.ok) throw new Error('No se pudo subir el audio');
+        const fila = (await rest('fotos', { method: 'POST', body: { viaje_id: viaje.id, ruta, audio: true } }))[0];
+        nota = { id: fila.id, path: ruta, audio: true, url: URL.createObjectURL(blob), dur: duracion };
+      }
+      viaje.fotos.push(nota);
+      this.guardarLocal();
+      return nota;
+    },
+
+    // Documentos de viaje: se guardan SOLO en este dispositivo (privados y sin internet)
+    docs: {
+      lista() { return ls.get('mv-docs', []); },
+      async anadir(file, nombre) {
+        const id = uid();
+        const g = await blobADataURL(await comprimir(file, 2000, 0.85));
+        await idb.put('doc-' + id, g);
+        const l = this.lista(); l.push({ id, nombre: nombre || file.name || 'Documento', fecha: new Date().toISOString().slice(0, 10) });
+        ls.set('mv-docs', l);
+      },
+      ver(id) { return idb.get('doc-' + id); },
+      async borrar(id) { await idb.del('doc-' + id); ls.set('mv-docs', this.lista().filter(d => d.id !== id)); }
     },
 
     async marcarInstax(viaje, foto, valor) {
@@ -225,7 +259,7 @@
     async borrarFoto(viaje, fotoId) {
       const f = viaje.fotos.find(x => x.id === fotoId);
       if (!f) return;
-      if (MODO_PRUEBA) { await idb.del(f.id + '-g'); await idb.del(f.id + '-p'); }
+      if (MODO_PRUEBA) { await idb.del(f.id + '-g'); await idb.del(f.id + '-p'); await idb.del(f.id + '-a'); }
       else {
         await fetch(`${URL_SB}/storage/v1/object/${BUCKET}`, { method: 'DELETE', headers: await cabeceras({ 'Content-Type': 'application/json' }), body: JSON.stringify({ prefixes: [f.path, f.thumb].filter(Boolean) }) });
         await rest(`fotos?id=eq.${f.id}`, { method: 'DELETE' });
@@ -276,10 +310,35 @@
       datos.deseos = (j.deseos || []).map((f, i) => Object.assign(filaADeseo(f), { id: 'd' + i }));
     },
 
+    async mapaDeOtro(t) {
+      const r = await fetch(`${URL_SB}/rest/v1/rpc/mapa_compartido`, { method: 'POST', headers: { apikey: KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ t }) });
+      if (!r.ok) throw new Error('Enlace no válido');
+      const j = await r.json();
+      if (!j) throw new Error('No compartido');
+      return [...new Set((j.viajes || []).map(v => v.pais))];
+    },
+
     exportar() {
       const copia = JSON.parse(JSON.stringify(datos));
       copia.viajes.forEach(v => v.fotos.forEach(f => { delete f.url; delete f.thumbUrl; }));
       return copia;
+    },
+
+    // Sugerencias mientras se escribe (Photon / OpenStreetMap)
+    async sugerencias(texto, codigoPais, soloLugares) {
+      const q = new URLSearchParams({ q: texto, limit: '12' });
+      if (soloLugares) ['place:city', 'place:town', 'place:village', 'place:island', 'place:municipality'].forEach(t => q.append('osm_tag', t));
+      const r = await fetch('https://photon.komoot.io/api/?' + q);
+      if (!r.ok) throw new Error('Sin buscador');
+      const j = await r.json();
+      const peso = { city: 0, town: 1, island: 1, municipality: 2, village: 3 };
+      return j.features.map(f => ({
+        nombre: f.properties.name, lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0],
+        pais: (f.properties.countrycode || '').toUpperCase(),
+        detalle: [f.properties.city !== f.properties.name ? f.properties.city : '', f.properties.state, f.properties.country].filter(Boolean).join(', '),
+        tipo: f.properties.osm_value
+      })).filter(x => x.nombre && (!codigoPais || x.pais === codigoPais))
+        .sort((a, b) => (peso[a.tipo] ?? 4) - (peso[b.tipo] ?? 4)).slice(0, 6);
     },
 
     // Geocodificación con OpenStreetMap (gratis; 1 búsqueda por segundo como máximo)

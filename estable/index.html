@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Mis Viajes</title>
+  <meta name="theme-color" content="#f6f1e7">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Mis Viajes">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="css/app.css?v=2">
+  <script src="js/config.js?v=2"></script>
+  <script src="vendor/d3.min.js?v=2" defer></script>
+  <script src="js/countries.js?v=2" defer></script>
+  <script src="js/store.js?v=2" defer></script>
+  <script src="js/map.js?v=2" defer></script>
+  <script src="js/intro.js?v=2" defer></script>
+  <script src="js/app.js?v=2" defer></script>
+</head>
+<body class="en-mapa">
+  <div id="login" hidden></div>
+
+  <!-- Mapa a pantalla completa (fondo) -->
+  <div id="mapa" class="mapa"></div>
+
+  <!-- Capa flotante sobre el mapa -->
+  <div class="mapa-ui">
+    <div class="mapa-arriba">
+      <div class="cab-flotante">
+        <div>
+          <div class="saludo" id="saludo"></div>
+          <h1 id="titulo">Mis Viajes</h1>
+        </div>
+        <button class="btn-redondo" data-ir="mas" aria-label="Ajustes">
+          <svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>
+        </button>
+      </div>
+      <div id="stats" class="stats"></div>
+    </div>
+    <div class="mapa-lado">
+      <button id="btn-rasca" class="btn-mapa" title="Modo rasca">✦</button>
+      <button id="btn-mundo" class="btn-mapa" title="Ver el mundo entero">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9S9.5 5.7 12 3Z"/></svg>
+      </button>
+    </div>
+    <div class="mapa-abajo">
+      <div id="cuenta-atras" class="cuenta-atras" hidden></div>
+      <div class="leyenda">
+        <span><i style="background:var(--visitado)"></i>Visitado</span>
+        <span><i style="background:var(--deseo)"></i>Quiero ir</span>
+        <span><i style="background:var(--casa)"></i><em id="leyenda-casa">Casa</em></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Páginas con scroll -->
+  <header class="cabecera">
+    <h1 id="titulo-vista">Mis viajes</h1>
+    <button class="btn-redondo" data-ir="mas" aria-label="Ajustes">
+      <svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>
+    </button>
+  </header>
+
+  <main>
+    <section class="vista" id="vista-mapa"></section>
+
+    <section class="vista" id="vista-viajes" hidden>
+      <div class="segmentado" id="seg-viajes">
+        <i class="seg-burbuja"></i>
+        <button data-sub="linea" class="on">Cronología</button>
+        <button data-sub="albumes">Álbumes</button>
+      </div>
+      <div id="viajes-contenido"></div>
+    </section>
+
+    <section class="vista" id="vista-pasaporte" hidden>
+      <div class="pasaporte">
+        <div class="pasaporte-cab">
+          <div class="pasaporte-escudo">🌍</div>
+          <div><small>PASAPORTE DE VIAJES</small><b id="pasaporte-nombre"></b><span id="pasaporte-num"></span></div>
+        </div>
+        <div id="sellos" class="sellos"></div>
+      </div>
+      <h2 class="vista-tit">Logros <small id="logros-num"></small></h2>
+      <div id="logros" class="logros"></div>
+    </section>
+
+    <section class="vista" id="vista-suenos" hidden>
+      <div id="suenos-lista"></div>
+    </section>
+
+    <section class="vista" id="vista-mas" hidden>
+      <div id="avisos-mas"></div>
+      <h2 class="vista-tit">🎒 Mi maleta</h2>
+      <div id="maleta" class="tarjeta"></div>
+      <h2 class="vista-tit">🔗 Compartir</h2>
+      <div id="compartir" class="tarjeta"></div>
+      <h2 class="vista-tit">⚙️ Ajustes</h2>
+      <div class="tarjeta">
+        <button class="fila-opcion" id="btn-intro">✈️ Ver la animación de entrada</button>
+        <button class="fila-opcion" id="btn-mensaje">🎄 Ver el mensaje de Navidad</button>
+        <button class="fila-opcion" id="btn-importar">📥 Importar viajes desde una lista</button>
+        <button class="fila-opcion" id="btn-exportar">💾 Descargar copia de seguridad</button>
+        <div id="cuenta"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Menú inferior -->
+  <div id="menu-mas" class="menu-mas" hidden>
+    <button data-nuevo="viaje"><span>✈️</span>Nuevo viaje</button>
+    <button data-nuevo="sueno"><span>✨</span>Nuevo sueño</button>
+  </div>
+  <nav class="tabs">
+    <i class="tab-burbuja"></i>
+    <button class="tab activa" data-vista="mapa"><svg viewBox="0 0 24 24"><path d="M9 4 3 6.5v13.5l6-2.5 6 2.5 6-2.5V4l-6 2.5L9 4Z"/><path d="M9 4v13.5M15 6.5V20"/></svg><b>Mapa</b></button>
+    <button class="tab" data-vista="viajes"><svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5v-15Z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/><path d="M9 8h7M9 12h5"/></svg><b>Viajes</b></button>
+    <button class="tab-centro" id="btn-nuevo" aria-label="Añadir"><span>＋</span></button>
+    <button class="tab" data-vista="suenos"><svg viewBox="0 0 24 24"><path d="M12 3l1.9 4.7L19 8.3l-3.9 3.3 1.2 5L12 14l-4.3 2.6 1.2-5L5 8.3l5.1-.6L12 3Z"/><path d="M19 17l.6 1.5 1.4.4-1.4.5L19 21l-.6-1.6-1.4-.5 1.4-.4L19 17Z"/></svg><b>Sueños</b></button>
+    <button class="tab" data-vista="pasaporte"><svg viewBox="0 0 24 24"><rect x="5" y="2.5" width="14" height="19" rx="2"/><circle cx="12" cy="10" r="3.2"/><path d="M8.8 10h6.4M12 6.8c.9.9 1.3 2 1.3 3.2s-.4 2.3-1.3 3.2c-.9-.9-1.3-2-1.3-3.2s.4-2.3 1.3-3.2ZM9 17h6"/></svg><b>Pasaporte</b></button>
+  </nav>
+</body>
+</html>

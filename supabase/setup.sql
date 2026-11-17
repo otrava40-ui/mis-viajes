@@ -15,6 +15,7 @@ create table if not exists public.viajes (
   fin        date,
   diario     text,
   sola       boolean not null default false,
+  extra      jsonb not null default '{}'::jsonb,
   creado     timestamptz not null default now()
 );
 
@@ -25,6 +26,8 @@ create table if not exists public.fotos (
   ruta       text not null,
   miniatura  text,
   instax     boolean not null default false,
+  billete    boolean not null default false,
+  audio      boolean not null default false,
   creado     timestamptz not null default now()
 );
 
@@ -37,6 +40,7 @@ create table if not exists public.deseos (
   lon        double precision,
   nota       text,
   fecha      date,
+  extra      jsonb not null default '{}'::jsonb,
   creado     timestamptz not null default now()
 );
 
@@ -45,8 +49,17 @@ create table if not exists public.ajustes (
   maleta           jsonb not null default '[]'::jsonb,
   compartir        boolean not null default false,
   compartir_diario boolean not null default false,
-  token            text not null default replace(gen_random_uuid()::text, '-', '')
+  token            text not null default replace(gen_random_uuid()::text, '-', ''),
+  extra            jsonb not null default '{}'::jsonb
 );
+
+-- Por si la base de datos se creó con una versión anterior
+alter table public.viajes  add column if not exists extra   jsonb not null default '{}'::jsonb;
+alter table public.deseos  add column if not exists extra   jsonb not null default '{}'::jsonb;
+alter table public.ajustes add column if not exists extra   jsonb not null default '{}'::jsonb;
+alter table public.fotos   add column if not exists billete boolean not null default false;
+alter table public.fotos   add column if not exists audio   boolean not null default false;
+alter table public.fotos   alter column miniatura drop not null;
 
 create index if not exists viajes_user on public.viajes(user_id);
 create index if not exists fotos_viaje on public.fotos(viaje_id);

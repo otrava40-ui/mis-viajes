@@ -109,6 +109,14 @@ La primera vez que la abra desde el icono verá tu mensaje sorpresa ❄️. Desp
 - **Copia de seguridad:** **Más → Descargar copia de seguridad** baja todos los datos de los viajes (sin las fotos, que siguen en Supabase).
 - **Kilómetros:** se calculan en línea recta, ida y vuelta, desde Calatayud hasta la ciudad de cada viaje.
 
+## 🛟 Salvavidas: volver a la versión anterior
+
+La versión anterior (la v2, que funcionaba) va guardada dentro de la web, en la carpeta `estable/`:
+
+- **Para usarla sin tocar nada:** abre `https://TU-USUARIO.github.io/mis-viajes/estable/`. Los datos son los mismos, porque están en el mismo sitio.
+- **Para volver a ella del todo:** sube a GitHub el contenido de `mis-viajes-v2-estable.zip`, igual que cuando actualizas.
+- **Otra opción desde GitHub:** pestaña **Commits** → abre el commit que quieras deshacer → **⋯ → Revert**.
+
 ## Qué hay en cada archivo
 
 ```
@@ -118,6 +126,10 @@ js/config.js             ← TU CONFIGURACIÓN
 js/app.js                pantallas y funciones
 js/map.js                el mapa
 js/intro.js              animación de entrada (avión)
+js/extras.js             recuerdos, juegos, postales, cápsulas, mensajes…
+js/datos.js              datos prácticos de países, frases y ciudades
+js/efectos.js            confeti y sonidos
+estable/                 copia de la versión anterior (salvavidas)
 js/store.js              guardar y leer datos (Supabase o navegador)
 js/countries.js          lista de países y continentes
 vendor/d3.min.js         librería del mapa

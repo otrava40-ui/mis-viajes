@@ -82,9 +82,15 @@
       this.g = svg.append('g');
       this.g.append('path').attr('class', 'oceano').attr('d', this.path(esfera));
       this.g.append('path').attr('class', 'reticula').attr('d', this.path(d3.geoGraticule10()));
+      const comun = defs.append('pattern').attr('id', 'comun').attr('patternUnits', 'userSpaceOnUse').attr('width', 5).attr('height', 5).attr('patternTransform', 'rotate(45)');
+      comun.append('rect').attr('width', 5).attr('height', 5).attr('fill', 'var(--visitado)');
+      comun.append('rect').attr('width', 2.5).attr('height', 5).attr('fill', '#7b68b5');
       this.capaPaises = this.g.append('g').attr('class', 'paises').attr('filter', 'url(#relieve)');
       this.capaPuntos = this.g.append('g').attr('class', 'mini-paises');
+      this.capaRutas = this.g.append('g').attr('class', 'rutas');
       this.capaPins = this.g.append('g').attr('class', 'pins');
+      this.capaSitios = this.g.append('g').attr('class', 'sitios');
+      this.capaVuelo = this.g.append('g').attr('class', 'vuelo');
 
       this.capaPaises.selectAll('path').data(this.features).join('path')
         .attr('d', this.path)
@@ -115,7 +121,14 @@
       this.capaPaises.selectAll('path').attr('stroke-width', 0.7 / k);
       this.capaPins.selectAll('circle').attr('r', d => (d.tipo === 'deseo' ? 3.2 : 3.5) / s).attr('stroke-width', 1.3 / s);
       this.capaPuntos.selectAll('circle').attr('r', 3.5 / s).attr('stroke-width', 1 / s);
+      this.capaRutas.selectAll('path').attr('stroke-width', 1.4 / s).attr('stroke-dasharray', `${4 / s} ${3 / s}`);
+      this.capaSitios.style('display', k >= 7 ? null : 'none').selectAll('text').attr('font-size', 14 / k);
+      this.capaVuelo.selectAll('path.estela').attr('stroke-width', 2 / s);
+      this.capaVuelo.selectAll('text').attr('font-size', 22 / s);
     },
+
+    opciones: { rutas: false, noche: false, otros: null, sitios: [] },
+    setOpcion(nombre, valor) { this.opciones[nombre] = valor; if (this.svg) this.pintar(this.estado, this.pins, this.rasca); },
 
     pintar(estado, pins, rasca) {
       this.estado = estado; this.pins = pins; this.rasca = rasca;
@@ -128,8 +141,14 @@
         if (e === 'deseo') return C.deseo;
         return rasca ? 'url(#rasca)' : 'var(--tierra)';
       };
+      const otros = this.opciones.otros;
+      const colorFinal = code => {
+        if (otros && otros.has(code)) return (estado[code] === 'visitado' || estado[code] === 'casa') ? 'url(#comun)' : '#a99ad6';
+        return color(code);
+      };
+      this.cont.classList.toggle('noche', !!this.opciones.noche);
       this.capaPaises.selectAll('path')
-        .attr('fill', d => color(d.code))
+        .attr('fill', d => colorFinal(d.code))
         .attr('class', d => 'pais ' + (estado[d.code] || 'nada'));
 
       const conForma = new Set(this.features.map(f => f.code));
@@ -143,7 +162,61 @@
         .attr('class', d => 'pin ' + d.tipo)
         .attr('cx', d => this.proy([d.lon, d.lat])[0]).attr('cy', d => this.proy([d.lon, d.lat])[1])
         .on('click', (ev, d) => this.onPais(d.pais));
+
+      // Rutas desde casa
+      const casa = window.CONFIG.CASA;
+      const rutas = this.opciones.rutas ? pins.filter(p => p.tipo === 'viaje' && p.lat != null) : [];
+      this.capaRutas.selectAll('path').data(rutas).join('path')
+        .attr('d', p => this.path({ type: 'LineString', coordinates: [[casa.lon, casa.lat], [p.lon, p.lat]] }));
+
+      // Sitios favoritos (se ven al hacer zoom)
+      this.capaSitios.selectAll('text').data(this.opciones.sitios || []).join('text')
+        .attr('x', d => this.proy([d.lon, d.lat])[0]).attr('y', d => this.proy([d.lon, d.lat])[1])
+        .attr('text-anchor', 'middle').attr('dominant-baseline', 'central').text(d => d.icono || '⭐');
       this.ajustarEscala();
+    },
+
+    // Avión que vuela desde casa hasta el destino
+    volar(lat, lon) {
+      if (!this.svg || lat == null) return;
+      const casa = window.CONFIG.CASA;
+      const linea = { type: 'LineString', coordinates: [[casa.lon, casa.lat], [lon, lat]] };
+      const b = this.path.bounds(linea);
+      const dx = Math.max(30, b[1][0] - b[0][0]), dy = Math.max(30, b[1][1] - b[0][1]);
+      const k = Math.max(this.kInicial * 0.6, Math.min(30, 0.7 / Math.max(dx / this.W, dy / (this.H * 0.38))));
+      const cx = (b[0][0] + b[1][0]) / 2, cy = (b[0][1] + b[1][1]) / 2;
+      this.svg.transition().duration(700).ease(d3.easeCubicInOut).call(this.zoom.transform, d3.zoomIdentity.translate(this.W / 2, this.H * 0.26).scale(k).translate(-cx, -cy));
+      this.capaVuelo.selectAll('*').remove();
+      const estela = this.capaVuelo.append('path').attr('class', 'estela').attr('d', this.path(linea));
+      const largo = estela.node().getTotalLength();
+      const avion = this.capaVuelo.append('text').attr('class', 'avion-vuelo').text('✈️').attr('text-anchor', 'middle').attr('dominant-baseline', 'central');
+      this.ajustarEscala();
+      estela.attr('stroke-dasharray', `0 ${largo}`);
+      const t0 = performance.now() + 500, dur = 1800;
+      const paso = ahora => {
+        const t = Math.min(1, Math.max(0, (ahora - t0) / dur)), e = d3.easeCubicInOut(t);
+        const p = estela.node().getPointAtLength(e * largo), p2 = estela.node().getPointAtLength(Math.min(largo, e * largo + 1));
+        const ang = Math.atan2(p2.y - p.y, p2.x - p.x) * 180 / Math.PI + 45;
+        avion.attr('transform', `translate(${p.x},${p.y}) rotate(${ang})`);
+        estela.attr('stroke-dasharray', `${e * largo} ${largo}`);
+        if (t < 1) this._vueloRaf = requestAnimationFrame(paso);
+        else setTimeout(() => this.capaVuelo.selectAll('*').transition().duration(800).style('opacity', 0).remove(), 1500);
+      };
+      cancelAnimationFrame(this._vueloRaf);
+      this._vueloRaf = requestAnimationFrame(paso);
+    },
+
+    // SVG del mundo entero para el póster
+    svgPoster(ancho, alto) {
+      const proy = d3.geoNaturalEarth1().fitSize([ancho, alto], { type: 'Sphere' });
+      const path = d3.geoPath(proy);
+      const C = window.CONFIG.COLORES, est = this.estado;
+      const col = c => est[c] === 'visitado' ? C.visitado : est[c] === 'casa' ? C.casa : est[c] === 'deseo' ? C.deseo : '#ece4d3';
+      let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${ancho}" height="${alto}" viewBox="0 0 ${ancho} ${alto}">`;
+      svg += `<path d="${path({ type: 'Sphere' })}" fill="#dfeaee"/>`;
+      svg += `<path d="${path(d3.geoGraticule10())}" fill="none" stroke="#fff" stroke-width="1"/>`;
+      this.features.forEach(f => { svg += `<path d="${path(f)}" fill="${col(f.code)}" stroke="#fff" stroke-width="0.8"/>`; });
+      return svg + '</svg>';
     },
 
     enfocar(code) {
@@ -180,5 +253,6 @@
     }
   };
 
+  Mapa.topoAGeo = topoAGeo;
   window.Mapa = Mapa;
 })();
