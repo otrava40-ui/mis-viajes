@@ -117,6 +117,7 @@ css/app.css              estilos
 js/config.js             ← TU CONFIGURACIÓN
 js/app.js                pantallas y funciones
 js/map.js                el mapa
+js/intro.js              animación de entrada (avión)
 js/store.js              guardar y leer datos (Supabase o navegador)
 js/countries.js          lista de países y continentes
 vendor/d3.min.js         librería del mapa

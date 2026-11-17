@@ -123,17 +123,47 @@
   }
 
   // ================= RENDER PRINCIPAL =================
+  const TITULOS = { viajes: 'Mis viajes', suenos: 'Próximos destinos', pasaporte: 'Mi pasaporte', mas: 'Más opciones' };
   function render() {
     const s = calcular();
+    document.body.classList.toggle('en-mapa', vista === 'mapa');
     $$('.tab').forEach(t => t.classList.toggle('activa', t.dataset.vista === vista));
+    moverBurbuja();
     $$('.vista').forEach(v => v.hidden = v.id !== 'vista-' + vista);
-    $('#fab').hidden = SOLO_LECTURA || !['mapa', 'viajes', 'suenos'].includes(vista);
+    $('#titulo-vista').textContent = TITULOS[vista] || '';
     pintarMapa(s);
     renderInicio(s);
     if (vista === 'viajes') renderViajes();
     if (vista === 'pasaporte') renderPasaporte(s);
     if (vista === 'suenos') renderSuenos();
     if (vista === 'mas') renderMas();
+  }
+
+  function moverBurbuja() {
+    const activa = $('.tab.activa'), burbuja = $('.tab-burbuja');
+    if (!activa) { burbuja.style.opacity = 0; return; }
+    const nav = $('.tabs').getBoundingClientRect(), r = activa.getBoundingClientRect();
+    burbuja.style.opacity = 1;
+    burbuja.style.width = r.width + 'px';
+    burbuja.style.transform = `translateX(${r.left - nav.left}px)`;
+  }
+
+  function irA(v) {
+    cerrarMenuMas();
+    if (v === vista) { if (v === 'mapa') M.reset(); return; }
+    vista = v; window.scrollTo(0, 0); render();
+    const sec = $('#vista-' + v); if (sec) { sec.classList.remove('entra'); void sec.offsetWidth; sec.classList.add('entra'); }
+  }
+
+  function abrirMenuMas() {
+    const m = $('#menu-mas'); m.hidden = false;
+    requestAnimationFrame(() => m.classList.add('abierto'));
+    $('#btn-nuevo').classList.add('abierto'); document.body.classList.add('menu-abierto');
+  }
+  function cerrarMenuMas() {
+    const m = $('#menu-mas'); if (m.hidden) return;
+    m.classList.remove('abierto'); $('#btn-nuevo').classList.remove('abierto'); document.body.classList.remove('menu-abierto');
+    setTimeout(() => { if (!m.classList.contains('abierto')) m.hidden = true; }, 250);
   }
 
   function pintarMapa(s) {
@@ -154,14 +184,17 @@
     if (prox) {
       const d = Math.ceil((new Date(prox.fecha + 'T00:00:00') - new Date(hoyISO() + 'T00:00:00')) / 864e5);
       const destino = prox.ciudad || pais(prox.pais).nombre;
-      cd.innerHTML = `<span class="cd-bandera">${P.bandera(prox.pais)}</span><div><div class="cd-num">${d === 0 ? '¡Es hoy!' : d === 1 ? '¡Mañana!' : `Faltan <b>${d}</b> días`}</div><div class="cd-dest">para ${esc(destino)} · ${fecha(prox.fecha)}</div></div>`;
+      cd.innerHTML = `<span class="cd-bandera">${P.bandera(prox.pais)}</span><div class="cd-txt"><div class="cd-num">${d === 0 ? '¡Es hoy!' : d === 1 ? '¡Mañana!' : `Faltan <b>${d}</b> días`}</div><div class="cd-dest">para ${esc(destino)} · ${fecha(prox.fecha)}</div></div><span class="cd-avion">✈️</span>`;
       cd.hidden = false;
+      cd.onclick = () => abrirPais(prox.pais);
     } else cd.hidden = true;
+    const pct = s.porcentaje.toFixed(s.porcentaje < 10 ? 1 : 0).replace('.', ',');
     $('#stats').innerHTML = [
-      ['Países', s.paises], ['Continentes', `${s.continentes}<small>/6</small>`],
-      ['Del mundo', `${s.porcentaje.toFixed(s.porcentaje < 10 ? 1 : 0).replace('.', ',')}<small>%</small>`], ['Km', nf.format(s.km)]
-    ].map(([t, v]) => `<div class="stat"><div class="stat-v">${v}</div><div class="stat-t">${t}</div></div>`).join('');
-    $('#barra-mundo').style.width = s.porcentaje + '%';
+      ['🌍', s.paises, s.paises === 1 ? 'país' : 'países'],
+      ['🧭', `${s.continentes}<small>/6</small>`, 'continentes'],
+      ['📊', `${pct}<small>%</small>`, 'del mundo'],
+      ['✈️', nf.format(s.km), 'km']
+    ].map(([i, v, t]) => `<div class="stat"><div class="stat-v">${v}</div><div class="stat-t">${t}</div></div>`).join('');
     $('#btn-rasca').classList.toggle('on', modoRasca);
   }
 
@@ -218,7 +251,7 @@
       <label class="check"><input type="checkbox" data-instax> Las fotos que añada son Instax escaneadas</label>
       <button class="btn-link peligro" data-borrar>Borrar este viaje</button>`}`;
     const h = abrirHoja(html, { completa: true });
-    $$('.foto', h).forEach(b => b.onclick = () => verFoto(v, +b.dataset.i));
+    $$('.foto', h).forEach(b => b.onclick = () => verFoto(fotosDe(v), +b.dataset.i, () => { h.remove(); abrirViaje(v.id); }));
     if (SOLO_LECTURA) return;
     $('[data-editar]', h).onclick = () => { h.cerrar(); formViaje(v); };
     $('[data-borrar]', h).onclick = async () => {
@@ -244,21 +277,25 @@
     if (ok) toast(ok === 1 ? 'Foto guardada' : `${ok} fotos guardadas`);
   }
 
-  function verFoto(v, i) {
+  // lista: [{ v: viaje, f: foto }]
+  function verFoto(lista, i, alCambiar) {
     const capa = document.createElement('div'); capa.className = 'visor';
     const pintar = () => {
-      const f = v.fotos[i];
+      if (!lista.length) { capa.remove(); return; }
+      i = Math.max(0, Math.min(i, lista.length - 1));
+      const { v, f } = lista[i];
       capa.innerHTML = `<img src="${esc(f.url || f.thumbUrl)}" alt="">
-        <div class="visor-barra">${SOLO_LECTURA ? '' : `<button data-instax>${f.instax ? '✓ Instax' : 'Marcar Instax'}</button><button data-borrar>🗑</button>`}<span>${i + 1}/${v.fotos.length}</span><button data-cerrar>✕</button></div>
-        ${i > 0 ? '<button class="visor-ant" data-ant>‹</button>' : ''}${i < v.fotos.length - 1 ? '<button class="visor-sig" data-sig>›</button>' : ''}`;
-      const on = (s, fn) => { const b = $(s, capa); if (b) b.onclick = e => { e.stopPropagation(); fn(); }; };
+        <div class="visor-barra">${SOLO_LECTURA ? '' : `<button data-instax>${f.instax ? '✓ Instax' : 'Marcar Instax'}</button><button data-borrar>🗑</button>`}<span>${i + 1}/${lista.length}</span><button data-cerrar>✕</button></div>
+        <div class="visor-pie">${P.bandera(v.pais)} ${esc(v.ciudad || pais(v.pais).nombre)} · ${rangoFechas(v.inicio, v.fin)}</div>
+        ${i > 0 ? '<button class="visor-ant" data-ant>‹</button>' : ''}${i < lista.length - 1 ? '<button class="visor-sig" data-sig>›</button>' : ''}`;
+      const on = (sel, fn) => { const b = $(sel, capa); if (b) b.onclick = e => { e.stopPropagation(); fn(); }; };
       on('[data-cerrar]', () => capa.remove());
       on('[data-ant]', () => { i--; pintar(); });
       on('[data-sig]', () => { i++; pintar(); });
-      on('[data-instax]', async () => { await S.marcarInstax(v, f, !f.instax); pintar(); });
+      on('[data-instax]', async () => { await S.marcarInstax(v, f, !f.instax); pintar(); if (alCambiar) alCambiar(); });
       on('[data-borrar]', async () => {
         if (await confirmar('¿Borrar esta foto?')) {
-          await S.borrarFoto(v, f.id); capa.remove(); $$('.hoja-capa').forEach(x => x.remove()); abrirViaje(v.id); render();
+          await S.borrarFoto(v, f.id); lista.splice(i, 1); pintar(); if (alCambiar) alCambiar(); render();
         }
       });
     };
@@ -266,11 +303,12 @@
     capa.addEventListener('touchstart', e => x0 = e.touches[0].clientX, { passive: true });
     capa.addEventListener('touchend', e => {
       if (x0 == null) return; const dx = e.changedTouches[0].clientX - x0; x0 = null;
-      if (dx > 50 && i > 0) { i--; pintar(); } else if (dx < -50 && i < v.fotos.length - 1) { i++; pintar(); }
+      if (dx > 50 && i > 0) { i--; pintar(); } else if (dx < -50 && i < lista.length - 1) { i++; pintar(); }
     });
     capa.onclick = e => { if (e.target === capa || e.target.tagName === 'IMG') capa.remove(); };
     document.body.appendChild(capa); pintar();
   }
+  const fotosDe = v => v.fotos.map(f => ({ v, f }));
 
   // ================= SELECTOR DE PAÍS Y LUGAR =================
   function selectorPais(cont, codeInicial, onCambio) {
@@ -402,6 +440,7 @@
   // ================= VISTA: VIAJES =================
   function renderViajes() {
     $$('#seg-viajes button').forEach(b => b.classList.toggle('on', b.dataset.sub === subVistaViajes));
+    $('#seg-viajes').classList.toggle('der', subVistaViajes !== 'linea');
     const cont = $('#viajes-contenido');
     const todos = [...S.datos.viajes].sort((a, b) => (b.inicio || '0').localeCompare(a.inicio || '0'));
     if (!todos.length) { cont.innerHTML = '<p class="vacio grande">Aún no hay viajes. Pulsa ＋ para añadir el primero.</p>'; return; }
@@ -416,15 +455,73 @@
       if (primero) html += `<div class="linea-inicio">🌱 Aquí empezó todo · ${fecha(primero.inicio)}</div>`;
       cont.innerHTML = html + '</div>';
       enlazarTarjetas(cont);
-    } else {
-      const soloInstax = subVistaViajes === 'instax';
-      const grupos = todos.map(v => ({ v, fotos: v.fotos.map((f, i) => ({ f, i })).filter(x => !soloInstax || x.f.instax) })).filter(g => g.fotos.length);
-      if (!grupos.length) { cont.innerHTML = `<p class="vacio grande">${soloInstax ? 'Aún no hay fotos Instax. Al subir fotos, marca "Son fotos Instax escaneadas".' : 'Aún no hay fotos.'}</p>`; return; }
-      cont.innerHTML = grupos.map(g => `<div class="gal-grupo"><button class="gal-tit" data-viaje="${g.v.id}">${P.bandera(g.v.pais)} ${esc(g.v.ciudad || pais(g.v.pais).nombre)} <small>${rangoFechas(g.v.inicio, g.v.fin)}</small></button>
-        <div class="galeria${soloInstax ? ' modo-instax' : ''}">${g.fotos.map(x => `<button class="foto${x.f.instax ? ' instax' : ''}" data-v="${g.v.id}" data-i="${x.i}"><img src="${esc(x.f.thumbUrl)}" alt="" loading="lazy"></button>`).join('')}</div></div>`).join('');
-      enlazarTarjetas(cont);
-      $$('.foto', cont).forEach(b => b.onclick = () => verFoto(S.datos.viajes.find(v => v.id === b.dataset.v), +b.dataset.i));
-    }
+    } else renderAlbumes(cont);
+  }
+
+  // ================= ÁLBUMES POR PAÍS =================
+  function albumesPorPais() {
+    const mapa = {};
+    [...S.datos.viajes].sort((a, b) => (b.inicio || '0').localeCompare(a.inicio || '0')).forEach(v => {
+      (mapa[v.pais] = mapa[v.pais] || { code: v.pais, viajes: [], fotos: [] });
+      mapa[v.pais].viajes.push(v);
+      v.fotos.forEach(f => mapa[v.pais].fotos.push({ v, f }));
+    });
+    return Object.values(mapa).sort((a, b) => b.fotos.length - a.fotos.length || pais(a.code).nombre.localeCompare(pais(b.code).nombre, 'es'));
+  }
+
+  function portada(fotos, extra) {
+    const capas = fotos.slice(0, 3).map((x, k) => `<img class="alb-foto f${k}" src="${esc(x.f.thumbUrl)}" alt="" loading="lazy">`).reverse().join('');
+    return `<div class="alb-portada${fotos.length ? '' : ' vacia'}">${capas || extra}</div>`;
+  }
+
+  function renderAlbumes(cont) {
+    const albumes = albumesPorPais();
+    const instax = S.datos.viajes.flatMap(v => v.fotos.filter(f => f.instax).map(f => ({ v, f })));
+    let html = '<div class="albumes">';
+    if (instax.length) html += `<button class="album especial" data-album="__instax">${portada(instax)}<div class="alb-info"><b>📸 Mis Instax</b><span>${instax.length} ${instax.length === 1 ? 'foto' : 'fotos'}</span></div></button>`;
+    html += albumes.map(a => `<button class="album" data-album="${a.code}">
+        ${portada(a.fotos, `<span class="alb-bandera">${P.bandera(a.code)}</span>`)}
+        <span class="alb-flag">${P.bandera(a.code)}</span>
+        <div class="alb-info"><b>${esc(pais(a.code).nombre)}</b><span>${a.fotos.length ? `${a.fotos.length} ${a.fotos.length === 1 ? 'foto' : 'fotos'}` : 'Sin fotos aún'} · ${a.viajes.length} ${a.viajes.length === 1 ? 'viaje' : 'viajes'}</span></div>
+      </button>`).join('');
+    cont.innerHTML = html + '</div>';
+    $$('[data-album]', cont).forEach(b => b.onclick = () => abrirAlbum(b.dataset.album));
+  }
+
+  function abrirAlbum(code) {
+    const esInstax = code === '__instax';
+    let soloInstax = esInstax;
+    const h = abrirHoja('<div class="album-hoja"></div>', { completa: true });
+    const cuerpo = $('.album-hoja', h);
+    const pintar = () => {
+      const viajes = esInstax ? S.datos.viajes.filter(v => v.fotos.some(f => f.instax)) : S.datos.viajes.filter(v => v.pais === code);
+      viajes.sort((a, b) => (b.inicio || '0').localeCompare(a.inicio || '0'));
+      const todas = viajes.flatMap(v => v.fotos.filter(f => !soloInstax || f.instax).map(f => ({ v, f })));
+      const titulo = esInstax ? '📸 Mis Instax' : `${P.bandera(code)} ${esc(pais(code).nombre)}`;
+      let html = `<div class="album-cab"><h2>${titulo}</h2><div class="sub">${todas.length} ${todas.length === 1 ? 'foto' : 'fotos'}${esInstax ? '' : ` · ${viajes.length} ${viajes.length === 1 ? 'viaje' : 'viajes'}`}</div></div>`;
+      if (!esInstax) html += `<div class="chips"><button class="chip-btn${soloInstax ? '' : ' on'}" data-f="todas">Todas</button><button class="chip-btn${soloInstax ? ' on' : ''}" data-f="instax">Solo Instax</button></div>`;
+      let idx = 0;
+      viajes.forEach(v => {
+        const fs = v.fotos.filter(f => !soloInstax || f.instax);
+        if (!fs.length && soloInstax) return;
+        html += `<div class="album-viaje"><button class="gal-tit" data-viaje="${v.id}">${esc(v.ciudad || pais(v.pais).nombre)} <small>${rangoFechas(v.inicio, v.fin)}</small></button>
+          <div class="galeria${soloInstax ? ' modo-instax' : ''}">${fs.map(f => `<button class="foto${f.instax ? ' instax' : ''}" data-idx="${idx++}"><img src="${esc(f.thumbUrl)}" alt="" loading="lazy"></button>`).join('')}
+          ${SOLO_LECTURA ? '' : `<label class="foto foto-nueva" title="Añadir fotos">＋<input type="file" accept="image/*" multiple hidden data-subir="${v.id}"></label>`}</div></div>`;
+      });
+      if (!todas.length && !viajes.length) html += '<p class="vacio">No hay fotos todavía.</p>';
+      if (!SOLO_LECTURA && !esInstax) html += `<label class="check"><input type="checkbox" data-instax ${soloInstax ? 'checked' : ''}> Las fotos que añada son Instax escaneadas</label>`;
+      cuerpo.innerHTML = html;
+      $$('[data-f]', cuerpo).forEach(b => b.onclick = () => { soloInstax = b.dataset.f === 'instax'; pintar(); });
+      $$('.foto[data-idx]', cuerpo).forEach(b => b.onclick = () => verFoto(todas, +b.dataset.idx, pintar));
+      $$('[data-viaje]', cuerpo).forEach(b => b.onclick = () => abrirViaje(b.dataset.viaje));
+      $$('[data-subir]', cuerpo).forEach(inp => inp.onchange = async e => {
+        const files = [...e.target.files]; if (!files.length) return;
+        const marcado = $('[data-instax]', cuerpo);
+        await subirFotos(S.datos.viajes.find(v => v.id === inp.dataset.subir), files, esInstax || (marcado && marcado.checked));
+        pintar(); render();
+      });
+    };
+    pintar();
   }
 
   // ================= VISTA: PASAPORTE =================
@@ -486,20 +583,81 @@
   }
 
   // ================= VISTA: MÁS =================
-  const MALETA_BASE = ['DNI / pasaporte', 'Tarjeta sanitaria europea', 'Cargador del móvil', 'Batería externa', 'Adaptador de enchufe', 'Instax y carretes 📸', 'Auriculares', 'Neceser', 'Pijama', 'Chaqueta', 'Gafas de sol', 'Medicinas básicas', 'Reservas descargadas', 'Botella de agua vacía'];
+  const MALETA_BASE = [
+    { nombre: '📄 Documentos', items: ['DNI / pasaporte', 'Tarjeta sanitaria europea', 'Reservas descargadas', 'Tarjetas y algo de efectivo'] },
+    { nombre: '👕 Ropa', items: ['Pijama', 'Ropa interior y calcetines', 'Chaqueta', 'Calzado cómodo', 'Bañador'] },
+    { nombre: '🧴 Aseo', items: ['Neceser', 'Cepillo y pasta de dientes', 'Crema solar', 'Medicinas básicas'] },
+    { nombre: '🔌 Tecnología', items: ['Cargador del móvil', 'Batería externa', 'Adaptador de enchufe', 'Auriculares', 'Instax y carretes 📸'] },
+    { nombre: '🎒 Otros', items: ['Gafas de sol', 'Botella de agua vacía', 'Candado para la maleta'] }
+  ];
+  let maletaEditando = false;
+  const abiertas = new Set();
+
+  function maletaNormalizada() {
+    const aj = S.datos.ajustes;
+    let m = aj.maleta;
+    if (!Array.isArray(m) || !m.length) m = MALETA_BASE.map(c => ({ nombre: c.nombre, items: c.items.map(t => ({ t, ok: false })) }));
+    else if (m[0] && m[0].t !== undefined) m = [{ nombre: '🎒 Mi lista', items: m }];   // formato antiguo
+    aj.maleta = m;
+    return m;
+  }
+
+  function renderMaleta() {
+    const m = maletaNormalizada();
+    const total = m.reduce((n, c) => n + c.items.length, 0), hechos = m.reduce((n, c) => n + c.items.filter(x => x.ok).length, 0);
+    const pct = total ? Math.round(hechos / total * 100) : 0;
+    const guarda = () => S.guardarAjustes({ maleta: m }).catch(() => toast('Sin conexión: se guardará en este móvil'));
+    const el = $('#maleta');
+    el.innerHTML = `<div class="maleta-cab">
+        <div class="anillo" style="--p:${pct}"><span>${pct}%</span></div>
+        <div class="maleta-res"><b>${hechos === total && total ? '¡Maleta lista! 🎉' : `${hechos} de ${total} cosas`}</b><span>${maletaEditando ? 'Modo edición' : 'Toca para marcar'}</span></div>
+        <button class="btn mini ${maletaEditando ? '' : 'sec'}" data-editar>${maletaEditando ? '✓ Hecho' : '✏️ Editar'}</button>
+      </div>
+      ${m.map((c, ci) => {
+        const ok = c.items.filter(x => x.ok).length;
+        const abierta = maletaEditando || abiertas.has(ci) || (abiertas.size === 0 && ci === 0);
+        return `<div class="cat${abierta ? ' abierta' : ''}">
+          <div class="cat-cab" data-cat="${ci}">
+            ${maletaEditando ? `<input class="campo cat-nombre" data-renombrar="${ci}" value="${esc(c.nombre)}">
+              <button class="btn-icono" data-subir-cat="${ci}" ${ci === 0 ? 'disabled' : ''} aria-label="Subir">↑</button>
+              <button class="btn-icono peligro" data-borrar-cat="${ci}" aria-label="Borrar categoría">🗑</button>`
+            : `<b>${esc(c.nombre)}</b><span class="cat-cuenta${ok === c.items.length && c.items.length ? ' completa' : ''}">${ok}/${c.items.length}</span><span class="cat-flecha">›</span>`}
+          </div>
+          <div class="cat-items">
+            ${c.items.map((x, i) => maletaEditando
+              ? `<div class="maleta-item editando"><input class="campo" data-texto="${ci}:${i}" value="${esc(x.t)}">
+                  <button class="btn-icono" data-arriba="${ci}:${i}" ${i === 0 ? 'disabled' : ''} aria-label="Subir">↑</button>
+                  <button class="btn-icono peligro" data-quitar="${ci}:${i}" aria-label="Quitar">✕</button></div>`
+              : `<label class="maleta-item${x.ok ? ' ok' : ''}"><input type="checkbox" data-marcar="${ci}:${i}" ${x.ok ? 'checked' : ''}><span class="caja"></span><span class="txt">${esc(x.t)}</span></label>`).join('')}
+            <form class="fila-buscar add-item" data-anadir="${ci}"><input class="campo" placeholder="Añadir a ${esc(c.nombre.replace(/^\S+\s/, '').toLowerCase())}…"><button class="btn mini">＋</button></form>
+          </div>
+        </div>`;
+      }).join('')}
+      ${maletaEditando ? `<form class="fila-buscar nueva-cat" data-nueva-cat><input class="campo" placeholder="Nueva categoría (ej: 🏖️ Playa)"><button class="btn mini">＋</button></form>
+        <button class="btn-link" data-restaurar>Restaurar la lista original</button>`
+      : `<button class="btn-link" data-reset>Desmarcar todo para el próximo viaje</button>`}`;
+
+    const par = s => s.split(':').map(Number);
+    $('[data-editar]', el).onclick = () => { maletaEditando = !maletaEditando; renderMaleta(); };
+    $$('[data-cat]', el).forEach(c => { if (!maletaEditando) c.onclick = () => { const i = +c.dataset.cat; const ab = c.parentElement.classList.contains('abierta'); abiertas.clear(); if (!ab) abiertas.add(i); else abiertas.add(-1); renderMaleta(); }; });
+    $$('[data-marcar]', el).forEach(c => c.onchange = () => { const [ci, i] = par(c.dataset.marcar); m[ci].items[i].ok = c.checked; guarda(); renderMaleta(); });
+    $$('[data-anadir]', el).forEach(f => f.onsubmit = e => { e.preventDefault(); const v = $('input', f).value.trim(); if (!v) return; m[+f.dataset.anadir].items.push({ t: v, ok: false }); abiertas.clear(); abiertas.add(+f.dataset.anadir); guarda(); renderMaleta(); const nf2 = $(`[data-anadir="${f.dataset.anadir}"] input`); if (nf2) nf2.focus(); });
+    $$('[data-texto]', el).forEach(inp => inp.onchange = () => { const [ci, i] = par(inp.dataset.texto); const v = inp.value.trim(); if (v) { m[ci].items[i].t = v; guarda(); } });
+    $$('[data-quitar]', el).forEach(b => b.onclick = () => { const [ci, i] = par(b.dataset.quitar); m[ci].items.splice(i, 1); guarda(); renderMaleta(); });
+    $$('[data-arriba]', el).forEach(b => b.onclick = () => { const [ci, i] = par(b.dataset.arriba); const it = m[ci].items; [it[i - 1], it[i]] = [it[i], it[i - 1]]; guarda(); renderMaleta(); });
+    $$('[data-renombrar]', el).forEach(inp => inp.onchange = () => { const v = inp.value.trim(); if (v) { m[+inp.dataset.renombrar].nombre = v; guarda(); } });
+    $$('[data-subir-cat]', el).forEach(b => b.onclick = () => { const i = +b.dataset.subirCat; [m[i - 1], m[i]] = [m[i], m[i - 1]]; guarda(); renderMaleta(); });
+    $$('[data-borrar-cat]', el).forEach(b => b.onclick = async () => { const i = +b.dataset.borrarCat; if (await confirmar(`¿Borrar la categoría "${m[i].nombre}" y sus ${m[i].items.length} cosas?`)) { m.splice(i, 1); guarda(); renderMaleta(); } });
+    const nc = $('[data-nueva-cat]', el); if (nc) nc.onsubmit = e => { e.preventDefault(); const v = $('input', nc).value.trim(); if (v) { m.push({ nombre: v, items: [] }); guarda(); renderMaleta(); } };
+    const rs = $('[data-reset]', el); if (rs) rs.onclick = () => { m.forEach(c => c.items.forEach(x => x.ok = false)); guarda(); renderMaleta(); toast('Lista lista para el próximo viaje ✈️'); };
+    const rt = $('[data-restaurar]', el); if (rt) rt.onclick = async () => { if (await confirmar('¿Volver a la lista original? Se perderán tus cambios.', 'Restaurar')) { S.datos.ajustes.maleta = []; maletaNormalizada(); guarda(); renderMaleta(); } };
+  }
+
   function renderMas() {
     if (SOLO_LECTURA) { $('#vista-mas').innerHTML = '<p class="vacio grande">Estás viendo un mapa compartido.</p>'; return; }
     const aj = S.datos.ajustes;
-    if (!aj.maleta || !aj.maleta.length) aj.maleta = MALETA_BASE.map(t => ({ t, ok: false }));
-    const hechos = aj.maleta.filter(x => x.ok).length;
-    $('#maleta').innerHTML = `<div class="maleta-cab"><span>${hechos}/${aj.maleta.length} listo</span><button class="btn-link" data-reset>Desmarcar todo</button></div>
-      ${aj.maleta.map((x, i) => `<div class="maleta-item${x.ok ? ' ok' : ''}"><label><input type="checkbox" data-i="${i}" ${x.ok ? 'checked' : ''}> ${esc(x.t)}</label><button class="btn-icono" data-del="${i}" aria-label="Quitar">✕</button></div>`).join('')}
-      <form class="fila-buscar" data-add><input class="campo" placeholder="Añadir a la maleta…"><button class="btn mini">＋</button></form>`;
-    const guarda = () => S.guardarAjustes({ maleta: aj.maleta }).catch(() => toast('Sin conexión: se guardará en este móvil'));
-    $$('#maleta [data-i]').forEach(c => c.onchange = () => { aj.maleta[+c.dataset.i].ok = c.checked; guarda(); renderMas(); });
-    $$('#maleta [data-del]').forEach(b => b.onclick = () => { aj.maleta.splice(+b.dataset.del, 1); guarda(); renderMas(); });
-    $('#maleta [data-reset]').onclick = () => { aj.maleta.forEach(x => x.ok = false); guarda(); renderMas(); };
-    $('#maleta [data-add]').onsubmit = e => { e.preventDefault(); const v = $('input', e.target).value.trim(); if (v) { aj.maleta.push({ t: v, ok: false }); guarda(); renderMas(); } };
+    $('#avisos-mas').innerHTML = (S.MODO_PRUEBA ? '<div class="banner">🧪 Modo prueba · los datos se guardan solo en este navegador</div>' : '') + avisoInstalar();
+    renderMaleta();
 
     const comp = $('#compartir');
     if (S.MODO_PRUEBA) comp.innerHTML = '<p class="nota">Disponible cuando la app esté conectada a Supabase.</p>';
@@ -595,13 +753,11 @@
   // ================= INSTALAR (iPhone) =================
   function avisoInstalar() {
     const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+    if (standalone) return '';
     const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
-    const el = $('#instalar');
-    if (standalone) { el.hidden = true; return; }
-    el.hidden = false;
-    el.innerHTML = ios
-      ? `<b>Instálala como app:</b> en Safari pulsa <span class="ico-compartir">⎋</span> <b>Compartir</b> → <b>Añadir a pantalla de inicio</b>.`
-      : `<b>Instálala como app:</b> en el menú del navegador elige <b>Instalar app</b> o <b>Añadir a pantalla de inicio</b>.`;
+    return `<div class="banner instalar">${ios
+      ? '<b>Instálala como app:</b> en Safari pulsa <b>Compartir</b> → <b>Añadir a pantalla de inicio</b>.'
+      : '<b>Instálala como app:</b> en el menú del navegador elige <b>Instalar app</b> o <b>Añadir a pantalla de inicio</b>.'}</div>`;
   }
 
   // ================= LOGIN =================
@@ -620,15 +776,18 @@
   }
 
   // ================= ARRANQUE =================
+  let introLista = Promise.resolve();
+
   async function arrancarApp() {
     S.cargarCache();
     render();
     try { await S.cargar(); }
     catch (e) {
-      if (e.message === 'SIN_SESION') { pantallaLogin(); return; }
+      if (e.message === 'SIN_SESION') { await introLista; pantallaLogin(); return; }
       toast('Sin conexión: mostrando la última copia guardada');
     }
     render();
+    await introLista;
     mensajeSorpresa();
   }
 
@@ -642,26 +801,32 @@
     document.documentElement.style.setProperty('--casa', C.COLORES.casa);
     $('#leyenda-casa').textContent = `Casa (${C.CASA.ciudad})`;
 
-    $$('.tab').forEach(t => t.onclick = () => { vista = t.dataset.vista; window.scrollTo(0, 0); render(); });
+    if (C.ANIMACION_ENTRADA !== false && window.Intro) introLista = Intro.mostrar({ esperar: () => M.listo });
+
+    $$('.tab').forEach(t => t.onclick = () => irA(t.dataset.vista));
+    $$('[data-ir]').forEach(b => b.onclick = () => irA(b.dataset.ir));
     $$('#seg-viajes button').forEach(b => b.onclick = () => { subVistaViajes = b.dataset.sub; renderViajes(); });
-    $('#fab').onclick = () => vista === 'suenos' ? formDeseo({}) : formViaje({});
-    $('#btn-rasca').onclick = () => { modoRasca = !modoRasca; ls.set('mv-rasca', modoRasca); render(); };
-    $('#btn-centrar').onclick = () => M.reset();
+    $('#btn-nuevo').onclick = () => $('#menu-mas').hidden ? abrirMenuMas() : cerrarMenuMas();
+    $$('#menu-mas [data-nuevo]').forEach(b => b.onclick = () => { cerrarMenuMas(); b.dataset.nuevo === 'sueno' ? formDeseo({}) : formViaje({}); });
+    document.addEventListener('click', e => { if (!e.target.closest('#menu-mas, #btn-nuevo')) cerrarMenuMas(); });
+    $('#btn-rasca').onclick = () => { modoRasca = !modoRasca; ls.set('mv-rasca', modoRasca); render(); toast(modoRasca ? '✦ Modo rasca: lo dorado está por descubrir' : 'Modo normal'); };
+    let mundo = false;
+    $('#btn-mundo').onclick = () => { mundo = !mundo; mundo ? M.mundoEntero() : M.reset(); };
     $('#btn-importar').onclick = importar;
     $('#btn-exportar').onclick = exportar;
     $('#btn-mensaje').onclick = () => mensajeSorpresa(true);
-    if (S.MODO_PRUEBA && !SOLO_LECTURA) $('#banner-prueba').hidden = false;
+    $('#btn-intro').onclick = () => Intro.mostrar();
+    window.addEventListener('resize', moverBurbuja);
 
     try { await M.iniciar($('#mapa'), abrirPais); }
-    catch (e) { $('#mapa').innerHTML = `<p class="vacio">${esc(e.message)}</p>`; }
+    catch (e) { $('#mapa').innerHTML = `<p class="vacio mapa-error">${esc(e.message)}</p>`; M.listo = true; }
 
     if (SOLO_LECTURA) {
       document.body.classList.add('solo-lectura');
       try { await S.cargarCompartido(TOKEN_COMPARTIDO); } catch (e) { toast(e.message); }
       render(); return;
     }
-    avisoInstalar();
-    if (!S.conectada) { pantallaLogin(); return; }
+    if (!S.conectada) { await introLista; pantallaLogin(); return; }
     await arrancarApp();
   }
 

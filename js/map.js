@@ -1,7 +1,7 @@
-// Mapa del mundo interactivo (d3 + datos de Natural Earth vía world-atlas)
+// Mapa del mundo interactivo a pantalla completa (d3 + Natural Earth vía world-atlas)
 (function () {
   const FUENTES = [
-    'data/countries-50m.json',                                   // copia local opcional
+    'data/countries-50m.json',
     'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json'
   ];
 
@@ -23,8 +23,7 @@
       });
       return pts;
     };
-    const obj = topo.objects[nombreObjeto];
-    return obj.geometries.map(g => {
+    return topo.objects[nombreObjeto].geometries.map(g => {
       let coordinates = null;
       if (g.type === 'Polygon') coordinates = g.arcs.map(anillo);
       else if (g.type === 'MultiPolygon') coordinates = g.arcs.map(p => p.map(anillo));
@@ -40,11 +39,10 @@
   }
 
   const Mapa = {
-    svg: null, g: null, zoom: null, proy: null, path: null, features: [], k: 1,
-    estado: {}, rasca: false, onPais: () => { },
+    features: [], k: 1, estado: {}, pins: [], rasca: false, onPais: () => { }, listo: false,
 
     async iniciar(contenedor, onPais) {
-      this.onPais = onPais;
+      this.cont = contenedor; this.onPais = onPais;
       const topo = await cargarTopo();
       const P = window.PAISES;
       this.features = topoAGeo(topo, 'countries').map(f => {
@@ -52,23 +50,39 @@
         f.code = pais ? pais.code : null;
         return f;
       }).filter(f => f.code !== 'AQ');
+      this.construir();
+      this.listo = true;
+      let t;
+      window.addEventListener('resize', () => { clearTimeout(t); t = setTimeout(() => { if (this.cont.clientWidth && Math.abs(this.cont.clientWidth - this.W) + Math.abs(this.cont.clientHeight - this.H) > 40) { this.construir(); this.pintar(this.estado, this.pins, this.rasca); } }, 250); });
+    },
 
-      const W = 1000, H = 560;
-      this.proy = d3.geoNaturalEarth1().fitExtent([[6, 6], [W - 6, H - 6]], { type: 'Sphere' });
+    construir() {
+      const W = this.cont.clientWidth || 390, H = this.cont.clientHeight || 700;
+      this.W = W; this.H = H;
+      const esfera = { type: 'Sphere' };
+      this.proy = d3.geoNaturalEarth1().fitSize([W, H], esfera);
       this.path = d3.geoPath(this.proy);
+      const b = this.path.bounds(esfera);
+      this.limites = b;
+      // Zoom inicial: el mapa llena la pantalla (en móvil vertical, todo el alto)
+      const ancho = b[1][0] - b[0][0], alto = b[1][1] - b[0][1];
+      this.kInicial = Math.min(4, Math.max(1, Math.max(W / ancho, (H * 0.92) / alto)));
 
-      contenedor.innerHTML = '';
-      const svg = d3.select(contenedor).append('svg')
+      this.cont.innerHTML = '';
+      const svg = d3.select(this.cont).append('svg')
         .attr('viewBox', `0 0 ${W} ${H}`).attr('class', 'mapa-svg').attr('role', 'img').attr('aria-label', 'Mapa del mundo');
       const defs = svg.append('defs');
       const pat = defs.append('pattern').attr('id', 'rasca').attr('patternUnits', 'userSpaceOnUse').attr('width', 6).attr('height', 6).attr('patternTransform', 'rotate(35)');
       pat.append('rect').attr('width', 6).attr('height', 6).attr('fill', '#cfb36b');
       pat.append('rect').attr('width', 2).attr('height', 6).attr('fill', '#e6d293');
+      const sombra = defs.append('filter').attr('id', 'relieve').attr('x', '-5%').attr('y', '-5%').attr('width', '110%').attr('height', '110%');
+      sombra.append('feDropShadow').attr('dx', 0).attr('dy', 0.6).attr('stdDeviation', 0.8).attr('flood-color', '#23314a').attr('flood-opacity', 0.25);
+
       this.svg = svg;
-      svg.append('path').attr('class', 'oceano').attr('d', this.path({ type: 'Sphere' }));
       this.g = svg.append('g');
+      this.g.append('path').attr('class', 'oceano').attr('d', this.path(esfera));
       this.g.append('path').attr('class', 'reticula').attr('d', this.path(d3.geoGraticule10()));
-      this.capaPaises = this.g.append('g').attr('class', 'paises');
+      this.capaPaises = this.g.append('g').attr('class', 'paises').attr('filter', 'url(#relieve)');
       this.capaPuntos = this.g.append('g').attr('class', 'mini-paises');
       this.capaPins = this.g.append('g').attr('class', 'pins');
 
@@ -77,28 +91,35 @@
         .attr('data-code', d => d.code)
         .on('click', (ev, d) => { if (d.code) this.onPais(d.code); });
 
-      this.zoom = d3.zoom().scaleExtent([1, 60]).translateExtent([[0, 0], [W, H]])
+      const margen = 60;
+      this.zoom = d3.zoom().scaleExtent([1, 80])
+        .translateExtent([[b[0][0] - margen, b[0][1] - margen], [b[1][0] + margen, b[1][1] + margen]])
         .on('zoom', ev => {
           this.k = ev.transform.k;
           this.g.attr('transform', ev.transform);
-          this.g.style('--k', this.k);
           this.ajustarEscala();
         });
       svg.call(this.zoom).on('dblclick.zoom', null);
-      this.W = W; this.H = H;
+      svg.call(this.zoom.transform, this.vistaInicial());
+    },
+
+    vistaInicial() {
+      // Centrado un poco a la izquierda de Europa para ver América, Europa, África y Asia
+      const [x, y] = this.proy([12, 18]);
+      const k = this.kInicial;
+      return d3.zoomIdentity.translate(this.W / 2, this.H / 2).scale(k).translate(-x, -y);
     },
 
     ajustarEscala() {
-      const k = this.k;
-      this.capaPaises.selectAll('path').attr('stroke-width', 0.5 / k);
-      this.capaPins.selectAll('circle').attr('r', d => (d.tipo === 'deseo' ? 3.2 : 3.6) / Math.sqrt(k)).attr('stroke-width', 1.2 / Math.sqrt(k));
-      this.capaPuntos.selectAll('circle').attr('r', 3.5 / Math.sqrt(k)).attr('stroke-width', 1 / Math.sqrt(k));
+      const k = this.k, s = Math.pow(k, 0.75);
+      this.capaPaises.selectAll('path').attr('stroke-width', 0.7 / k);
+      this.capaPins.selectAll('circle').attr('r', d => (d.tipo === 'deseo' ? 3.2 : 3.5) / s).attr('stroke-width', 1.3 / s);
+      this.capaPuntos.selectAll('circle').attr('r', 3.5 / s).attr('stroke-width', 1 / s);
     },
 
-    // estado: { code: 'visitado' | 'deseo' | 'casa' }
     pintar(estado, pins, rasca) {
+      this.estado = estado; this.pins = pins; this.rasca = rasca;
       if (!this.svg) return;
-      this.estado = estado; this.rasca = rasca;
       const C = window.CONFIG.COLORES;
       const color = code => {
         const e = estado[code];
@@ -111,7 +132,6 @@
         .attr('fill', d => color(d.code))
         .attr('class', d => 'pais ' + (estado[d.code] || 'nada'));
 
-      // Países diminutos que no aparecen en el mapa: se dibujan como punto
       const conForma = new Set(this.features.map(f => f.code));
       const mini = Object.keys(estado).filter(c => !conForma.has(c) && window.PAISES.porCodigo[c]).map(c => window.PAISES.porCodigo[c]);
       this.capaPuntos.selectAll('circle').data(mini, d => d.code).join('circle')
@@ -127,30 +147,32 @@
     },
 
     enfocar(code) {
+      if (!this.svg) return;
       const f = this.features.find(x => x.code === code);
       let b;
-      if (f) b = this.path.bounds(f);
-      else {
+      if (f) {
+        b = this.path.bounds(f);
+        if (f.geometry.type === 'MultiPolygon') {
+          let mejor = null, area = 0;
+          f.geometry.coordinates.forEach(c => { const g = { type: 'Polygon', coordinates: c }; const a = d3.geoArea(g); if (a > area) { area = a; mejor = g; } });
+          if (mejor) b = this.path.bounds(mejor);
+        }
+      } else {
         const p = window.PAISES.porCodigo[code]; if (!p) return;
-        const [x, y] = this.proy([p.lon, p.lat]); b = [[x - 8, y - 8], [x + 8, y + 8]];
-      }
-      // Países con territorios lejanos (Francia, EEUU…): usa el trozo más grande
-      if (f && f.geometry.type === 'MultiPolygon') {
-        let mejor = null, area = 0;
-        f.geometry.coordinates.forEach(c => { const g = { type: 'Polygon', coordinates: c }; const a = d3.geoArea(g); if (a > area) { area = a; mejor = g; } });
-        if (mejor) b = this.path.bounds(mejor);
+        const [x, y] = this.proy([p.lon, p.lat]); b = [[x - 4, y - 4], [x + 4, y + 4]];
       }
       const dx = b[1][0] - b[0][0], dy = b[1][1] - b[0][1];
       const cx = (b[0][0] + b[1][0]) / 2, cy = (b[0][1] + b[1][1]) / 2;
-      const k = Math.max(1, Math.min(14, 0.55 / Math.max(dx / this.W, dy / this.H)));
-      // Deja hueco abajo para la ficha del país
-      const t = d3.zoomIdentity.translate(this.W / 2, this.H * 0.32).scale(k).translate(-cx, -cy);
-      this.svg.transition().duration(650).call(this.zoom.transform, t);
+      const k = Math.max(this.kInicial, Math.min(40, 0.6 / Math.max(dx / this.W, dy / (this.H * 0.4))));
+      const t = d3.zoomIdentity.translate(this.W / 2, this.H * 0.26).scale(k).translate(-cx, -cy);
+      this.svg.transition().duration(700).ease(d3.easeCubicInOut).call(this.zoom.transform, t);
     },
 
-    reset() { if (this.svg) this.svg.transition().duration(500).call(this.zoom.transform, d3.zoomIdentity); },
+    reset() { if (this.svg) this.svg.transition().duration(600).ease(d3.easeCubicInOut).call(this.zoom.transform, this.vistaInicial()); },
+    mundoEntero() { if (this.svg) this.svg.transition().duration(600).ease(d3.easeCubicInOut).call(this.zoom.transform, d3.zoomIdentity.translate(0, 0).scale(1)); },
 
     revelar(code) {
+      if (!this.capaPaises) return;
       const sel = this.capaPaises.selectAll('path').filter(d => d.code === code);
       sel.classed('revelando', false); void (sel.node() && sel.node().getBBox());
       sel.classed('revelando', true);

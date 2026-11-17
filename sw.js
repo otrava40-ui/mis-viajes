@@ -1,7 +1,7 @@
 // Service worker: la app abre al instante y funciona sin conexión.
 // Si cambias algún archivo, sube este número para que los móviles se actualicen.
-const VERSION = 'mis-viajes-v1';
-const BASICOS = ['./', 'index.html', 'css/app.css', 'js/config.js', 'js/countries.js', 'js/store.js', 'js/map.js', 'js/app.js', 'vendor/d3.min.js', 'manifest.webmanifest', 'icons/icon-192.png'];
+const VERSION = 'mis-viajes-v2';
+const BASICOS = ['./', 'index.html', 'css/app.css', 'js/config.js', 'js/countries.js', 'js/store.js', 'js/map.js', 'js/intro.js', 'js/app.js', 'vendor/d3.min.js', 'manifest.webmanifest', 'icons/icon-192.png'];
 const MAPA = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json';
 
 self.addEventListener('install', e => {
