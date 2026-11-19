@@ -618,7 +618,6 @@ body.en-mapa:has(.mapa.noche) .stat-t, body.en-mapa:has(.mapa.noche) .saludo, bo
 .confeti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 300; }
 .fila2 > div { min-width: 0; } input[type=date].campo { min-width: 0; max-width: 100%; }
 .calendario { grid-template-rows: repeat(7, auto); grid-auto-columns: minmax(0, 1fr); width: 100%; }
-html, body { overflow-x: hidden; }
 .calendario2 { display: grid; grid-template-columns: 30px 1fr; gap: 3px 6px; align-items: center; }
 .cal-mes { font-size: 11px; color: var(--tinta-2); }
 .cal-dias { display: grid; grid-template-columns: repeat(31, minmax(0, 1fr)); gap: 2px; }
@@ -630,3 +629,12 @@ html, body { overflow-x: hidden; }
 .cal-fila .cal-mes { width: 28px; flex: none; }
 .cal-fila .cal-dias { flex: 1; display: grid; grid-template-columns: repeat(31, minmax(0, 1fr)); gap: 2px; }
 .cal-dias i { display: block; height: 7px; aspect-ratio: auto; }
+
+/* V4: scroll y rendimiento */
+main { overflow-x: clip; }
+:root { --vidrio: rgba(255, 253, 248, .94); }
+.cab-flotante, .stat, .btn-mapa, .leyenda, .recuerdo, .cuenta-atras, .tabs { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+.tabs { background: rgba(255, 253, 248, .97); }
+.cuenta-atras { background: rgba(35, 49, 74, .97); }
+.paises path { vector-effect: non-scaling-stroke; stroke-width: .6px; transition: none; }
+.mapa-svg { will-change: transform; }

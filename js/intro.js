@@ -98,7 +98,7 @@
           mar.addColorStop(0, '#cfe2ea'); mar.addColorStop(1, '#8fb3c4');
           ctx.beginPath(); path({ type: 'Sphere' }); ctx.fillStyle = mar; ctx.fill();
           ctx.beginPath(); path(reticula); ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = .6; ctx.stroke();
-          const feats = (window.Mapa && window.Mapa.features) || [];
+          const feats = (window.Mapa && (window.Mapa.featuresLigeros || window.Mapa.features)) || [];
           const estado = (window.Mapa && window.Mapa.estado) || {};
           const col = window.CONFIG.COLORES;
           feats.forEach(f => {

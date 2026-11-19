@@ -6,14 +6,23 @@
   ];
 
   // Decodificador TopoJSON mínimo → GeoJSON
-  function topoAGeo(topo, nombreObjeto) {
-    const tf = topo.transform;
+  // tolerancia (en grados): quita puntos muy juntos para que el mapa vaya fluido
+  function topoAGeo(topo, nombreObjeto, tolerancia) {
+    const tf = topo.transform, tol2 = (tolerancia || 0) ** 2;
     const arcos = topo.arcs.map(arco => {
       let x = 0, y = 0;
-      return arco.map(p => {
+      const pts = arco.map(p => {
         if (tf) { x += p[0]; y += p[1]; return [x * tf.scale[0] + tf.translate[0], y * tf.scale[1] + tf.translate[1]]; }
         return p.slice();
       });
+      if (!tol2 || pts.length < 4) return pts;
+      const out = [pts[0]];
+      for (let i = 1; i < pts.length - 1; i++) {
+        const u = out[out.length - 1], dx = pts[i][0] - u[0], dy = pts[i][1] - u[1];
+        if (dx * dx + dy * dy >= tol2) out.push(pts[i]);
+      }
+      out.push(pts[pts.length - 1]);
+      return out;
     });
     const anillo = indices => {
       const pts = [];
@@ -45,11 +54,14 @@
       this.cont = contenedor; this.onPais = onPais;
       const topo = await cargarTopo();
       const P = window.PAISES;
-      this.features = topoAGeo(topo, 'countries').map(f => {
+      const conCodigo = f => {
         const pais = P.porNumero[f.id] || P.porCodigo[P.POR_NOMBRE_MAPA[f.properties.name]];
         f.code = pais ? pais.code : null;
         return f;
-      }).filter(f => f.code !== 'AQ');
+      };
+      this.features = topoAGeo(topo, 'countries', 0.035).map(conCodigo).filter(f => f.code !== 'AQ');
+      // Versión más ligera para el globo 3D y la animación de entrada
+      this.featuresLigeros = topoAGeo(topo, 'countries', 0.3).map(conCodigo).filter(f => f.code !== 'AQ');
       this.construir();
       this.listo = true;
       let t;
@@ -85,7 +97,7 @@
       const comun = defs.append('pattern').attr('id', 'comun').attr('patternUnits', 'userSpaceOnUse').attr('width', 5).attr('height', 5).attr('patternTransform', 'rotate(45)');
       comun.append('rect').attr('width', 5).attr('height', 5).attr('fill', 'var(--visitado)');
       comun.append('rect').attr('width', 2.5).attr('height', 5).attr('fill', '#7b68b5');
-      this.capaPaises = this.g.append('g').attr('class', 'paises').attr('filter', 'url(#relieve)');
+      this.capaPaises = this.g.append('g').attr('class', 'paises');
       this.capaPuntos = this.g.append('g').attr('class', 'mini-paises');
       this.capaRutas = this.g.append('g').attr('class', 'rutas');
       this.capaPins = this.g.append('g').attr('class', 'pins');
@@ -100,11 +112,12 @@
       const margen = 60;
       this.zoom = d3.zoom().scaleExtent([1, 80])
         .translateExtent([[b[0][0] - margen, b[0][1] - margen], [b[1][0] + margen, b[1][1] + margen]])
+        .on('start', () => this.cont.classList.add('moviendo'))
         .on('zoom', ev => {
           this.k = ev.transform.k;
           this.g.attr('transform', ev.transform);
-          this.ajustarEscala();
-        });
+        })
+        .on('end', () => { this.cont.classList.remove('moviendo'); this.ajustarEscala(); });
       svg.call(this.zoom).on('dblclick.zoom', null);
       svg.call(this.zoom.transform, this.vistaInicial());
     },
@@ -118,7 +131,6 @@
 
     ajustarEscala() {
       const k = this.k, s = Math.pow(k, 0.75);
-      this.capaPaises.selectAll('path').attr('stroke-width', 0.7 / k);
       this.capaPins.selectAll('circle').attr('r', d => (d.tipo === 'deseo' ? 3.2 : 3.5) / s).attr('stroke-width', 1.3 / s);
       this.capaPuntos.selectAll('circle').attr('r', 3.5 / s).attr('stroke-width', 1 / s);
       this.capaRutas.selectAll('path').attr('stroke-width', 1.4 / s).attr('stroke-dasharray', `${4 / s} ${3 / s}`);

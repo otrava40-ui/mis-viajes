@@ -813,8 +813,9 @@
       ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(W / 2, H / 2, R * 1.2, 0, 7); ctx.fill();
       ctx.beginPath(); path({ type: 'Sphere' }); ctx.fillStyle = '#9fc2d2'; ctx.fill();
       ctx.beginPath(); path(d3.geoGraticule10()); ctx.strokeStyle = 'rgba(255,255,255,.3)'; ctx.lineWidth = .6; ctx.stroke();
-      M.features.forEach(f => { ctx.beginPath(); path(f); const e = est[f.code]; ctx.fillStyle = e === 'visitado' ? col.visitado : e === 'casa' ? col.casa : e === 'deseo' ? col.deseo : '#f1ead9'; ctx.fill(); });
-      ctx.beginPath(); M.features.forEach(f => path(f)); ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = .5; ctx.stroke();
+      const feats = M.featuresLigeros || M.features;
+      feats.forEach(f => { ctx.beginPath(); path(f); const e = est[f.code]; ctx.fillStyle = e === 'visitado' ? col.visitado : e === 'casa' ? col.casa : e === 'deseo' ? col.deseo : '#f1ead9'; ctx.fill(); });
+      ctx.beginPath(); feats.forEach(f => path(f)); ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = .5; ctx.stroke();
       pins.forEach(p => { const d = d3.geoDistance([p.lon, p.lat], [-rot[0], -rot[1]]); if (d > Math.PI / 2) return; const [x, y] = proy([p.lon, p.lat]); ctx.beginPath(); ctx.arc(x, y, 4, 0, 7); ctx.fillStyle = p.tipo === 'deseo' ? '#fff' : '#23314a'; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke(); });
       const luz = ctx.createRadialGradient(W / 2 - R * .4, H / 2 - R * .45, R * .2, W / 2, H / 2, R * 1.02); luz.addColorStop(0, 'rgba(255,255,255,.18)'); luz.addColorStop(.6, 'rgba(0,0,0,0)'); luz.addColorStop(1, 'rgba(10,20,40,.35)');
       ctx.beginPath(); path({ type: 'Sphere' }); ctx.fillStyle = luz; ctx.fill();
@@ -842,7 +843,7 @@
   // ===================== MAPA DE ESPAÑA =====================
   async function mapaEspana() {
     const { S, C, P, esc, viajesHechos, toast } = A();
-    const el = capaPantalla('espana', `<h2>🇪🇸 Mi España</h2><p class="esp-res">Cargando mapa…</p><div class="esp-mapa"></div><div class="esp-info"></div>`);
+    const el = capaPantalla('espana', `<h2>🇪🇸 España</h2><p class="esp-res">Cargando mapa…</p><div class="esp-mapa"></div><div class="esp-info"></div>`);
     let topo;
     try { const r = await fetch('https://cdn.jsdelivr.net/npm/es-atlas@0.6.0/es/provinces.json'); topo = await r.json(); }
     catch (e) { el.querySelector('.esp-res').textContent = 'No se pudo cargar el mapa de España. Revisa la conexión.'; return; }
@@ -885,7 +886,7 @@
       <button data-c="noche" class="${o.noche ? 'on' : ''}"><span>🌙</span>Modo noche</button>
       <button data-c="rutas" class="${o.rutas ? 'on' : ''}"><span>🧵</span>Rutas desde casa</button>
       <button data-c="globo"><span>🌍</span>Globo 3D</button>
-      <button data-c="espana"><span>🇪🇸</span>Mi España</button>
+      <button data-c="espana"><span>🇪🇸</span>España</button>
       ${o.otros ? '<button data-c="comparar" class="on"><span>🤝</span>Comparando mapas</button>' : ''}`;
     document.body.appendChild(pop);
     const r = boton.getBoundingClientRect();
