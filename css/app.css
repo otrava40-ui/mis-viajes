@@ -638,3 +638,139 @@ main { overflow-x: clip; }
 .cuenta-atras { background: rgba(35, 49, 74, .97); }
 .paises path { vector-effect: non-scaling-stroke; stroke-width: .6px; transition: none; }
 .mapa-svg { will-change: transform; }
+
+/* ===================== V4: EXTRAS 2 ===================== */
+.seg-burbuja { width: calc(33.333% - 2.67px); }
+.segmentado[data-pos="1"] .seg-burbuja { transform: translateX(100%); }
+.segmentado[data-pos="2"] .seg-burbuja { transform: translateX(200%); }
+.segmentado.der .seg-burbuja { transform: none; }
+
+/* Reservas */
+.reservas { display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
+.reservas > .btn { align-self: flex-start; }
+.reserva { display: flex; align-items: center; gap: 4px; }
+.reserva-btn { flex: 1; display: flex; align-items: center; gap: 12px; border: 0; background: var(--blanco); border-radius: 14px; padding: 10px 12px; box-shadow: var(--sombra); text-align: left; border-left: 4px solid var(--casa); }
+.res-ico { font-size: 26px; }
+.reserva-btn b { display: block; font-size: 15px; } .reserva-btn small { color: var(--deseo); font-size: 12px; }
+.vista-reserva { text-align: center; }
+.vista-reserva h3 { margin: 0 0 12px; }
+.vista-reserva img { max-width: 100%; max-height: 62vh; border-radius: 12px; box-shadow: var(--sombra); background: #fff; }
+.vista-reserva iframe { width: 100%; height: 62vh; border: 0; border-radius: 12px; background: #fff; box-shadow: var(--sombra); }
+
+/* Vuelos */
+.vuelos { display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
+.vuelos > .btn { align-self: flex-start; }
+.vuelo-fila { display: flex; align-items: center; gap: 12px; background: var(--blanco); border-radius: 14px; padding: 10px 12px; box-shadow: var(--sombra); }
+.vuelo-ruta { display: flex; align-items: center; gap: 6px; font-family: ui-monospace, Menlo, monospace; font-size: 17px; }
+.vuelo-ruta span { color: var(--visitado); }
+.vuelo-info { flex: 1; min-width: 0; } .vuelo-info small { display: block; color: var(--tinta-2); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lineas-vuelo path { fill: none; stroke: #7b68b5; stroke-opacity: .8; stroke-linecap: round; }
+.lineas-vuelo circle { fill: #fff; stroke: #7b68b5; }
+.mapa.noche .lineas-vuelo path { stroke: #c9b8ff; }
+.stats-vuelos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; text-align: center; margin: 4px 0 6px; }
+.stats-vuelos b { display: block; font-family: var(--serif); font-size: 22px; } .stats-vuelos small { font-size: 11px; color: var(--tinta-2); }
+.huella { display: flex; gap: 14px; align-items: center; padding: 14px 16px; background: linear-gradient(135deg, #eaf4ea, #fffdf8); }
+.huella > span { font-size: 40px; } .huella b { display: block; font-family: var(--serif); font-size: 20px; } .huella small { color: var(--tinta-2); font-size: 13px; }
+
+/* Maravillas */
+.maravillas-nota { margin: -4px 4px 10px; }
+.maravillas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.maravilla { border: 0; background: var(--blanco); border-radius: 14px; padding: 10px 6px; box-shadow: var(--sombra); display: flex; flex-direction: column; align-items: center; gap: 2px; filter: grayscale(1); opacity: .5; transition: .3s; }
+.maravilla.vista { filter: none; opacity: 1; background: linear-gradient(160deg, #fff8e6, #fffdf8); }
+.maravilla.moderna { border: 1.5px solid rgba(201, 162, 39, .5); }
+.maravilla span { font-size: 30px; } .maravilla b { font-size: 12px; line-height: 1.15; text-align: center; } .maravilla small { font-size: 10.5px; color: var(--tinta-2); text-align: center; }
+
+/* Gastronomía */
+.gastro { margin-bottom: 10px; }
+.gastro-cab { display: flex; align-items: center; gap: 8px; padding: 2px 0 8px; } .gastro-cab b { flex: 1; } .gastro-cab small { color: var(--tinta-2); }
+.platos { display: flex; flex-wrap: wrap; gap: 6px; }
+.plato { border: 1.5px solid var(--linea); background: none; border-radius: 20px; padding: 6px 12px; font-size: 13.5px; }
+.plato.on { background: #eaf4ea; border-color: var(--deseo); }
+.plato.nuevo { border-style: dashed; color: var(--tinta-2); }
+
+/* Destino */
+.destino-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 6px 0; }
+.destino-grid .tiempo { margin: 0; }
+.destino-grid .tiempo b { font-size: 20px; }
+.hora { display: flex; gap: 10px; align-items: center; background: linear-gradient(135deg, #efe9f7, #fffdf8); border-radius: 16px; padding: 12px; }
+.hora > span { font-size: 30px; } .hora small { display: block; font-size: 11px; color: var(--tinta-2); } .hora b { font-family: var(--serif); font-size: 20px; }
+.destino-grid .tiempo > span { font-size: 30px; }
+.conversor, .presupuesto { background: var(--blanco); border-radius: 16px; padding: 12px 14px; margin: 8px 0; box-shadow: var(--sombra); }
+.conv-cab { display: flex; align-items: baseline; gap: 6px; margin-bottom: 8px; } .conv-cab small { margin-left: auto; font-size: 11px; color: var(--tinta-2); }
+.conv-fila { display: flex; align-items: center; gap: 10px; } .conv-fila .campo { flex: 0 0 110px; padding: 9px 12px; } .conv-fila b { font-family: var(--serif); font-size: 22px; }
+.conv-rapido { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 10px; font-size: 13px; color: var(--tinta-2); }
+.presupuesto label { display: block; font-weight: 600; font-size: 14px; margin-bottom: 8px; }
+.presu-barra { background: var(--blanco); border-radius: 14px; padding: 10px 14px; margin: 10px 0; box-shadow: var(--sombra); }
+.presu-barra > div:first-child { display: flex; justify-content: space-between; font-size: 14px; }
+.presu-barra small { color: var(--tinta-2); font-size: 12px; }
+.presu-barra.pasado .logro-barra i { background: var(--peligro); }
+
+/* Datos curiosos */
+.curioso { background: linear-gradient(135deg, #fff4d6, #fffdf8); border-radius: 16px; padding: 12px 16px; margin: 10px 0; box-shadow: var(--sombra); }
+.curioso-cab { font-size: 15px; } .curioso p { margin: 6px 0; font-size: 15px; line-height: 1.45; }
+.curioso-pie { display: flex; justify-content: space-between; } .curioso-pie .btn-link { margin: 0; padding: 4px 0; font-size: 13px; }
+
+/* Presentación */
+.presentacion { padding: 0; background: #000; overflow: hidden; }
+.presentacion .pantalla-cerrar { background: rgba(255, 255, 255, .18); color: #fff; z-index: 5; }
+.pres-fotos { position: absolute; inset: 0; }
+.pres-fotos img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 1.4s ease; }
+.pres-fotos img.visible { opacity: 1; }
+.pres-fotos img.kb0 { animation: kb0 6s ease-out forwards; } .pres-fotos img.kb1 { animation: kb1 6s ease-out forwards; }
+.pres-fotos img.kb2 { animation: kb2 6s ease-out forwards; } .pres-fotos img.kb3 { animation: kb3 6s ease-out forwards; }
+@keyframes kb0 { from { transform: scale(1.15) translate(2%, 1%); } to { transform: scale(1) translate(0, 0); } }
+@keyframes kb1 { from { transform: scale(1) translate(0, 0); } to { transform: scale(1.15) translate(-2%, -1%); } }
+@keyframes kb2 { from { transform: scale(1.12) translate(-2%, 2%); } to { transform: scale(1.02) translate(1%, 0); } }
+@keyframes kb3 { from { transform: scale(1.02) translate(1%, -1%); } to { transform: scale(1.14) translate(-1%, 2%); } }
+.pres-titulo { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; text-align: center; background: radial-gradient(circle, rgba(0, 0, 0, .35), rgba(0, 0, 0, .55)); transition: opacity 1.2s; z-index: 2; pointer-events: none; }
+.pres-titulo.fuera { opacity: 0; }
+.pres-titulo h1 { font-size: 44px; margin: 0; text-shadow: 0 2px 12px rgba(0, 0, 0, .5); animation: sube-in 1s both; }
+.pres-titulo p { font-size: 18px; opacity: .9; animation: sube-in 1s .3s both; }
+.pres-pie { position: absolute; left: 0; right: 0; bottom: 0; padding: 14px 16px calc(14px + var(--safe-b)); background: linear-gradient(transparent, rgba(0, 0, 0, .6)); z-index: 3; }
+.pres-barra { height: 3px; background: rgba(255, 255, 255, .25); border-radius: 2px; overflow: hidden; margin-bottom: 10px; }
+.pres-barra i { display: block; height: 100%; background: #fff; transition: width .4s; }
+.pres-botones { display: flex; gap: 8px; align-items: center; }
+.pres-botones button, .pres-botones a { background: rgba(255, 255, 255, .18); border: 0; color: #fff; border-radius: 12px; padding: 8px 14px; font-size: 15px; text-decoration: none; }
+.pres-btn { margin: 0 0 12px; }
+
+/* Banda sonora */
+.banda-cab { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+.banda-cab h2 { margin: 0; font-size: 22px; } .banda-cab p { margin: 2px 0 0; color: var(--tinta-2); }
+.disco.grande { width: 72px; height: 72px; flex: none; }
+.banda { background: var(--blanco); border-radius: 18px; box-shadow: var(--sombra); overflow: hidden; margin-bottom: 10px; }
+.pista { display: flex; align-items: center; gap: 12px; padding: 12px 14px; text-decoration: none; color: inherit; border-bottom: 1px solid var(--papel-2); }
+.pista:last-child { border: 0; }
+.pista-n { width: 22px; text-align: center; color: var(--tinta-2); font-family: var(--serif); }
+.pista div { flex: 1; min-width: 0; } .pista b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .pista small { color: var(--tinta-2); font-size: 13px; }
+.pista > span:last-child { color: var(--visitado); }
+
+/* Fotolibro */
+.fotolibro { background: #d9d2c3; }
+.libro-barra { display: flex; align-items: center; gap: 10px; justify-content: space-between; flex-wrap: wrap; margin: 0 50px 8px 0; }
+.libro-ayuda { margin: 0 0 14px; }
+.libro { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.pagina { width: 100%; max-width: 560px; aspect-ratio: 210 / 297; background: #fffdf8; box-shadow: 0 6px 24px rgba(0, 0, 0, .18); padding: 7% 7%; display: flex; flex-direction: column; overflow: hidden; color: var(--tinta); }
+.portada { justify-content: center; text-align: center; background: linear-gradient(160deg, #2c3e5c, #1d2a40); color: #f6f1e7; }
+.portada-mapa svg { width: 100%; height: auto; border-radius: 8px; }
+.portada h1 { font-size: 40px; margin: 24px 0 6px; } .portada p { font-family: var(--serif); font-style: italic; opacity: .8; }
+.portada-banderas { font-size: 26px; margin-top: 18px; line-height: 1.5; }
+.libro-cab { display: flex; gap: 14px; align-items: center; border-bottom: 2px solid var(--linea); padding-bottom: 10px; margin-bottom: 10px; }
+.libro-cab > span { font-size: 44px; } .libro-cab h2 { margin: 0; font-size: 28px; } .libro-cab p { margin: 2px 0 0; color: var(--tinta-2); font-size: 13px; }
+.libro-diario { font-family: var(--serif); font-size: 14px; line-height: 1.5; margin: 6px 0; }
+.libro-mejor p, .libro-dia { font-size: 12.5px; margin: 3px 0; }
+.libro-fotos { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: auto; flex: 1; min-height: 0; padding-top: 10px; }
+.libro-fotos.seis { grid-template-columns: 1fr 1fr; grid-template-rows: repeat(3, 1fr); }
+.libro-fotos img { width: 100%; height: 100%; object-fit: cover; border-radius: 4px; min-height: 0; }
+.libro-fotos img.instax { background: #fff; padding: 4px 4px 14px; box-shadow: 0 2px 6px rgba(0, 0, 0, .15); object-fit: cover; }
+.libro-pie { text-align: center; font-size: 12px; color: var(--tinta-2); margin: 8px 0 0; }
+.contraportada { justify-content: center; text-align: center; background: linear-gradient(160deg, #e07a5f, #c35a40); color: #fff; }
+.contraportada h2 { font-size: 24px; }
+@media print {
+  @page { size: A4; margin: 0; }
+  body.imprimiendo-libro > *:not(.fotolibro) { display: none !important; }
+  body.imprimiendo-libro { padding: 0 !important; background: #fff; }
+  body.imprimiendo-libro .fotolibro { position: static; padding: 0; background: #fff; overflow: visible; }
+  body.imprimiendo-libro .fotolibro > :not(.libro) { display: none !important; }
+  body.imprimiendo-libro .libro { gap: 0; display: block; }
+  body.imprimiendo-libro .pagina { max-width: none; width: 210mm; height: 297mm; aspect-ratio: auto; box-shadow: none; page-break-after: always; break-after: page; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

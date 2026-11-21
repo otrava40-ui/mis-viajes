@@ -22,7 +22,14 @@ window.CONFIG = {
     firma: 'Sergio'
   },
 
-  // 4) Colores
+  // 4) Mensajes escondidos de la familia: se desbloquean cuando visite ese país.
+  //    pais = código de 2 letras (JP Japón, IT Italia, US EEUU, MX México, TH Tailandia…)
+  MENSAJES_FAMILIA: [
+    // { pais: 'JP', de: 'Tu hermana', titulo: '¡Por fin Japón!', texto: 'Escribe aquí el mensaje…' },
+    // { pais: 'IS', de: 'Mamá', titulo: 'Auroras', texto: '…' },
+  ],
+
+  // 5) Colores (también se pueden cambiar desde la app en Más → Apariencia)
   COLORES: {
     visitado: '#e07a5f',
     deseo: '#5b8e7d',

@@ -59,6 +59,9 @@ alter table public.deseos  add column if not exists extra   jsonb not null defau
 alter table public.ajustes add column if not exists extra   jsonb not null default '{}'::jsonb;
 alter table public.fotos   add column if not exists billete boolean not null default false;
 alter table public.fotos   add column if not exists audio   boolean not null default false;
+alter table public.fotos   add column if not exists reserva boolean not null default false;
+alter table public.fotos   add column if not exists nombre  text;
+alter table public.fotos   add column if not exists tipo    text;
 alter table public.fotos   alter column miniatura drop not null;
 
 create index if not exists viajes_user on public.viajes(user_id);

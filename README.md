@@ -111,10 +111,10 @@ La primera vez que la abra desde el icono verá tu mensaje sorpresa ❄️. Desp
 
 ## 🛟 Salvavidas: volver a la versión anterior
 
-La versión anterior (la v2, que funcionaba) va guardada dentro de la web, en la carpeta `estable/`:
+La versión anterior (la 3.1) va guardada dentro de la web, en la carpeta `estable/`:
 
 - **Para usarla sin tocar nada:** abre `https://TU-USUARIO.github.io/mis-viajes/estable/`. Los datos son los mismos, porque están en el mismo sitio.
-- **Para volver a ella del todo:** sube a GitHub el contenido de `mis-viajes-v2-estable.zip`, igual que cuando actualizas.
+- **Para volver a ella del todo:** sube a GitHub el contenido de `mis-viajes-v31-estable.zip`, igual que cuando actualizas. (La v2 sigue en `mis-viajes-v2-estable.zip`.)
 - **Otra opción desde GitHub:** pestaña **Commits** → abre el commit que quieras deshacer → **⋯ → Revert**.
 
 ## Qué hay en cada archivo
@@ -129,6 +129,8 @@ js/intro.js              animación de entrada (avión)
 js/extras.js             recuerdos, juegos, postales, cápsulas, mensajes…
 js/datos.js              datos prácticos de países, frases y ciudades
 js/efectos.js            confeti y sonidos
+js/extras2.js            reservas, vuelos, maravillas, gastronomía, presentación, fotolibro…
+js/datos2.js             aeropuertos, aerolíneas, maravillas y platos típicos
 estable/                 copia de la versión anterior (salvavidas)
 js/store.js              guardar y leer datos (Supabase o navegador)
 js/countries.js          lista de países y continentes
