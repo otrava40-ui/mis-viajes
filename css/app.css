@@ -794,3 +794,16 @@ main { overflow-x: clip; }
 .juntos > div { flex: 1; } .juntos b { display: block; } .juntos small { color: var(--tinta-2); font-size: 13px; }
 .juntos-flags { font-size: 16px; letter-spacing: 2px; }
 .pin.viaje.compartido { fill: #7b68b5; }
+
+/* ===== V8: solicitudes de acceso ===== */
+.login-sub { margin: -8px 0 18px; }
+.login-cambiar { margin-top: 14px; display: inline-block; }
+.solicitud { display: flex; align-items: center; gap: 10px; padding: 8px 0; }
+.solicitud + .solicitud { border-top: 1px solid var(--linea, rgba(0,0,0,.08)); }
+.solicitud > div { flex: 1; min-width: 0; }
+.solicitud b, .solicitud small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.solicitud small { color: var(--tinta-2); font-size: 12px; }
+.solicitud .btn.mini { padding: 7px 12px; font-size: 13px; width: auto; }
+.solicitud .btn-link { font-size: 13px; }
+[data-ir="mas"].con-aviso { position: relative; }
+[data-ir="mas"].con-aviso::after { content: ''; position: absolute; top: 4px; right: 4px; width: 10px; height: 10px; border-radius: 50%; background: #e5484d; box-shadow: 0 0 0 2px var(--papel); }

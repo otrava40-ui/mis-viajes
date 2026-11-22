@@ -116,6 +116,29 @@
       if (!r.ok) throw new Error('Email o contraseña incorrectos');
       guardaSesion(await r.json());
     },
+    async pedirAcceso(email, password, nombre) {
+      const r = await fetch(`${URL_SB}/auth/v1/signup`, {
+        method: 'POST', headers: { apikey: KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), password, data: { nombre: nombre.trim() } })
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        const m = (j.msg || j.message || j.error_description || '') + '';
+        if (/already|registered|exists/i.test(m)) throw new Error('Ese email ya tiene cuenta. Prueba a entrar.');
+        if (/not allowed|disabled/i.test(m)) throw new Error('Ahora mismo no se aceptan solicitudes nuevas.');
+        if (/password/i.test(m)) throw new Error('La contraseña tiene que tener al menos 6 caracteres.');
+        throw new Error('No se pudo enviar: ' + (m || r.status));
+      }
+      if (j.access_token) { guardaSesion(j); return 'sesion'; }
+      return 'confirmar';   // Supabase pide confirmar el email antes
+    },
+    async estado() {
+      if (MODO_PRUEBA) return { estado: 'aprobado', admin: false };
+      return await rest('rpc/mi_estado', { method: 'POST', body: {} });
+    },
+    async solicitudes() { return await rest('solicitudes?select=*&order=creado.asc'); },
+    async aceptarSolicitud(u) { await rest('rpc/aceptar_solicitud', { method: 'POST', body: { u } }); },
+    async rechazarSolicitud(u) { await rest('rpc/rechazar_solicitud', { method: 'POST', body: { u } }); },
     salir() { sesion = null; ls.del(LS_SESION); ls.del(LS_CACHE); ls.del('mv-perfil'); },
     async cambiarPassword(nueva) {
       const r = await fetch(`${URL_SB}/auth/v1/user`, { method: 'PUT', headers: await cabeceras({ 'Content-Type': 'application/json' }), body: JSON.stringify({ password: nueva }) });

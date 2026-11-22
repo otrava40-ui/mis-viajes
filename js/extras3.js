@@ -42,7 +42,7 @@
         try {
           const fila = await S().guardarPerfil({ nombre, casa_ciudad: lugar.ciudad, casa_lat: lugar.lat, casa_lon: lugar.lon, casa_pais: lugar.pais || 'ES' });
           aplicarPerfil(fila); h.remove(); A().render(); toast('Perfil guardado'); res();
-        } catch (er) { toast('No se pudo guardar el perfil'); }
+        } catch (er) { toast('No se pudo guardar el perfil: ' + String(er.message || er).slice(0, 140)); }
       };
     });
   }
@@ -227,9 +227,51 @@
     return `<h2 class="vista-tit">🤝 Viajes compartidos</h2><div class="tarjeta">${filas.map(([id, c]) => `<div class="juntos"><span class="avatar">${esc(S().nombreDe(id).slice(0, 1))}</span><div><b>Con ${esc(S().nombreDe(id))}</b><small>${c.viajes} ${c.viajes === 1 ? 'viaje' : 'viajes'} · ${c.paises.size} ${c.paises.size === 1 ? 'país' : 'países'} juntos</small></div><span class="juntos-flags">${[...c.paises].slice(0, 6).map(x => P.bandera(x)).join('')}</span></div>`).join('')}</div>`;
   }
 
+  // ===================== SOLICITUDES DE ACCESO (solo administrador) =====================
+  let solicitudes = [];
+  let esAdmin = false;
+  function marcarAvisoAjustes() {
+    document.querySelectorAll('[data-ir="mas"]').forEach(b => b.classList.toggle('con-aviso', esAdmin && solicitudes.length > 0));
+  }
+  async function revisarSolicitudes(admin, avisar) {
+    esAdmin = !!admin;
+    if (!esAdmin) { solicitudes = []; marcarAvisoAjustes(); return; }
+    try { solicitudes = await S().solicitudes() || []; } catch (e) { solicitudes = []; }
+    marcarAvisoAjustes();
+    if (avisar && solicitudes.length) {
+      const n = solicitudes.length, pri = solicitudes[0].nombre || solicitudes[0].email;
+      A().toast(n === 1 ? `🔔 ${pri} ha pedido acceso · Ajustes → Solicitudes` : `🔔 ${n} personas han pedido acceso · Ajustes → Solicitudes`);
+    }
+  }
+  function htmlSolicitudes() {
+    if (!esAdmin) return '';
+    const { esc, fecha } = A();
+    return `<h2 class="vista-tit">🔔 Solicitudes de acceso</h2><div class="tarjeta solicitudes">${solicitudes.length
+      ? solicitudes.map(x => `<div class="solicitud" data-u="${esc(x.user_id)}"><span class="avatar">${esc((x.nombre || x.email || '?').slice(0, 1).toUpperCase())}</span>
+          <div><b>${esc(x.nombre || 'Sin nombre')}</b><small>${esc(x.email || '')} · ${esc(fecha((x.creado || '').slice(0, 10)))}</small></div>
+          <button class="btn mini" data-aceptar>Aceptar</button><button class="btn-link peligro" data-rechazar>Rechazar</button></div>`).join('')
+      : '<p class="nota">No hay nadie esperando. Cuando alguien pulse <b>Pedir acceso</b> aparecerá aquí.</p>'}</div>`;
+  }
+  function enlazarSolicitudes(cont) {
+    cont.querySelectorAll('.solicitud').forEach(f => {
+      const u = f.dataset.u, x = solicitudes.find(s => s.user_id === u) || {};
+      const nombre = x.nombre || x.email || 'esta persona';
+      f.querySelector('[data-aceptar]').onclick = async () => {
+        try { await S().aceptarSolicitud(u); A().toast(`✅ ${nombre} ya puede entrar`); await revisarSolicitudes(true); await S().cargar().catch(() => {}); A().render(); }
+        catch (e) { A().toast('No se pudo aceptar: ' + String(e.message).slice(0, 120)); }
+      };
+      f.querySelector('[data-rechazar]').onclick = async () => {
+        if (!await A().confirmar(`¿Rechazar a ${nombre}? No podrá ver nada. Si quieres borrar su cuenta del todo, hazlo en Supabase → Authentication → Users.`, 'Rechazar')) return;
+        try { await S().rechazarSolicitud(u); A().toast('Solicitud rechazada'); await revisarSolicitudes(true); A().render(); }
+        catch (e) { A().toast('No se pudo rechazar: ' + String(e.message).slice(0, 120)); }
+      };
+    });
+  }
+
   window.EXTRAS3 = {
     aplicarPerfil, formPerfil, revisarPerfil, mensajesBienvenida, mensajesPais, htmlMensajesFamilia, enlazarMensajesFamilia,
     compartido, personasDe, htmlCompartirForm, enlazarCompartirForm, htmlViajeFamilia, htmlDescargas, enlazarDescargas, descargar,
-    htmlReparto, ajustarFormGastos, htmlJuntos, familia
+    htmlReparto, ajustarFormGastos, htmlJuntos, familia,
+    revisarSolicitudes, htmlSolicitudes, enlazarSolicitudes
   };
 })();

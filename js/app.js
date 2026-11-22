@@ -762,7 +762,7 @@
   function renderMas() {
     if (SOLO_LECTURA) { $('#vista-mas').innerHTML = '<p class="vacio grande">Estás viendo un mapa compartido.</p>'; return; }
     const aj = S.datos.ajustes;
-    const mx = $('#mas-extra'); mx.innerHTML = EXTRAS3.htmlMensajesFamilia() + EXTRAS.htmlMasExtra(calcular()); EXTRAS.enlazarMasExtra(mx); EXTRAS3.enlazarMensajesFamilia(mx);
+    const mx = $('#mas-extra'); mx.innerHTML = EXTRAS3.htmlSolicitudes() + EXTRAS3.htmlMensajesFamilia() + EXTRAS.htmlMasExtra(calcular()); EXTRAS.enlazarMasExtra(mx); EXTRAS3.enlazarMensajesFamilia(mx); EXTRAS3.enlazarSolicitudes(mx);
     $('#avisos-mas').innerHTML = (S.MODO_PRUEBA ? '<div class="banner">🧪 Modo prueba · los datos se guardan solo en este navegador</div>' : '') + avisoInstalar();
     renderMaleta();
 
@@ -871,18 +871,45 @@
   }
 
   // ================= LOGIN =================
-  function pantallaLogin() {
+  function pantallaLogin(modo) {
     document.body.classList.add('sin-sesion');
     const el = $('#login'); el.hidden = false;
+    const pedir = modo === 'pedir';
     el.innerHTML = `<div class="login-caja"><div class="login-globo">🌍</div><h1>${esc(C.APP_NOMBRE)}</h1>
-      <form class="form"><input class="campo" type="email" name="e" placeholder="Email" autocomplete="username" required>
-      <input class="campo" type="password" name="p" placeholder="Contraseña" autocomplete="current-password" required>
-      <button class="btn ancho">Entrar</button><p class="login-err"></p></form></div>`;
+      ${pedir ? '<p class="nota login-sub">Rellena tus datos. Cuando te acepten podrás entrar con este email y contraseña.</p>' : ''}
+      <form class="form">${pedir ? '<input class="campo" name="n" placeholder="Tu nombre" autocomplete="given-name" required maxlength="40">' : ''}
+      <input class="campo" type="email" name="e" placeholder="Email" autocomplete="username" required>
+      <input class="campo" type="password" name="p" placeholder="${pedir ? 'Elige una contraseña (mín. 6)' : 'Contraseña'}" minlength="${pedir ? 6 : 1}" autocomplete="${pedir ? 'new-password' : 'current-password'}" required>
+      <button class="btn ancho">${pedir ? 'Enviar solicitud' : 'Entrar'}</button><p class="login-err"></p></form>
+      <button class="btn-link login-cambiar" data-cambiar>${pedir ? '← Ya tengo cuenta: entrar' : '¿No tienes cuenta? <b>Pedir acceso</b>'}</button></div>`;
+    $('[data-cambiar]', el).onclick = () => pantallaLogin(pedir ? '' : 'pedir');
     $('form', el).onsubmit = async e => {
-      e.preventDefault(); const b = $('button', el); b.disabled = true; b.textContent = 'Entrando…';
-      try { await S.entrar(e.target.e.value, e.target.p.value); el.hidden = true; document.body.classList.remove('sin-sesion'); await arrancarApp(); }
-      catch (err) { $('.login-err', el).textContent = err.message; b.disabled = false; b.textContent = 'Entrar'; }
+      e.preventDefault(); const b = $('form button', el), txt = b.textContent; b.disabled = true; b.textContent = pedir ? 'Enviando…' : 'Entrando…';
+      try {
+        if (pedir) {
+          const r = await S.pedirAcceso(e.target.e.value, e.target.p.value, e.target.n.value);
+          if (r === 'confirmar') { pantallaEspera('confirmar'); return; }
+        } else await S.entrar(e.target.e.value, e.target.p.value);
+        el.hidden = true; document.body.classList.remove('sin-sesion'); await arrancarApp();
+      }
+      catch (err) { $('.login-err', el).textContent = err.message; b.disabled = false; b.textContent = txt; }
     };
+  }
+
+  // Pantalla para quien ha pedido acceso y aún no está aceptado
+  function pantallaEspera(estado) {
+    document.body.classList.add('sin-sesion');
+    const el = $('#login'); el.hidden = false;
+    const textos = {
+      pendiente: ['⏳', 'Solicitud enviada', 'En cuanto te acepten podrás entrar. Puedes cerrar la app y volver más tarde.'],
+      confirmar: ['📬', 'Revisa tu correo', 'Te hemos mandado un email para confirmar la cuenta. Confírmalo y luego entra con tu email y contraseña.'],
+      rechazado: ['🔒', 'Sin acceso', 'Esta cuenta no tiene acceso a la app.']
+    }[estado] || ['⏳', 'Esperando', ''];
+    el.innerHTML = `<div class="login-caja"><div class="login-globo">${textos[0]}</div><h1>${textos[1]}</h1><p class="nota login-sub">${textos[2]}</p>
+      ${estado === 'confirmar' ? '<button class="btn ancho" data-entrar>Ir a entrar</button>' : `<button class="btn ancho" data-otra>Comprobar otra vez</button><button class="btn-link login-cambiar" data-fuera>Salir</button>`}</div>`;
+    const en = $('[data-entrar]', el); if (en) en.onclick = () => pantallaLogin();
+    const ot = $('[data-otra]', el); if (ot) ot.onclick = async () => { ot.disabled = true; ot.textContent = 'Comprobando…'; el.hidden = true; document.body.classList.remove('sin-sesion'); await arrancarApp(); };
+    const fu = $('[data-fuera]', el); if (fu) fu.onclick = () => { S.salir(); pantallaLogin(); };
   }
 
   // ================= ARRANQUE =================
@@ -892,10 +919,19 @@
     S.cargarCache();
     EXTRAS.aplicarTema();
     render();
+    // ¿Esta cuenta está aceptada? (si la base de datos aún no tiene el sistema de solicitudes, se sigue normal)
+    let est = null;
+    if (!S.MODO_PRUEBA) {
+      try { est = await S.estado(); }
+      catch (e) {
+        if (e.message === 'SIN_SESION') { await introLista; pantallaLogin(); return; }
+      }
+      if (est && est.estado && est.estado !== 'aprobado') { await introLista; pantallaEspera(est.estado); return; }
+    }
     try { await S.cargar(); }
     catch (e) {
       if (e.message === 'SIN_SESION') { await introLista; pantallaLogin(); return; }
-      toast('Sin conexión: mostrando la última copia guardada');
+      toast('Sin conexión: mostrando la última copia guardada' + (navigator.onLine ? ' (' + String(e.message).slice(0, 80) + ')' : ''));
     }
     EXTRAS.aplicarTema();
     render();
@@ -903,6 +939,7 @@
     await introLista;
     await EXTRAS3.revisarPerfil();
     render();
+    if (est) EXTRAS3.revisarSolicitudes(est.admin, true);
     const conBaseDatos = await EXTRAS3.mensajesBienvenida();
     if (!conBaseDatos) mensajeSorpresa();
   }

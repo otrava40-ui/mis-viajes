@@ -157,3 +157,11 @@ sw.js, manifest...       lo que la hace instalable como app
 supabase/setup.sql       base de datos (paso 2)
 .github/workflows/...    tarea que mantiene Supabase despierto
 ```
+
+## Solicitudes de acceso (v8)
+- En la pantalla de entrada hay un botón **Pedir acceso**: cada persona se crea su cuenta con su nombre, email y contraseña.
+- Hasta que el administrador la acepte **no ve nada**: ni nombres, ni viajes, ni fotos.
+- El administrador ve un **punto rojo** en el engranaje y las solicitudes en **Ajustes → Solicitudes de acceso**, con los botones Aceptar o Rechazar.
+- Las cuentas creadas a mano en Supabase también llegan como solicitud; acéptalas desde la app.
+- Supabase: *Authentication → Sign In / Providers* → **Allow new users to sign up** activado y **Confirm email** desactivado.
+- SQL: `supabase/acceso.sql`, que también va incluido al final de `setup.sql`.
