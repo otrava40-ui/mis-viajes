@@ -94,13 +94,13 @@
   }
 
   // ---------- Conversión fila <-> objeto ----------
-  const filaAViaje = f => ({ id: f.id, pais: f.pais, ciudad: f.ciudad || '', lat: f.lat, lon: f.lon, inicio: f.inicio || '', fin: f.fin || '', diario: f.diario || '', sola: !!f.sola, extra: f.extra || {}, fotos: [] });
+  const filaAViaje = f => ({ id: f.id, duenio: f.user_id || '', miembros: [], pais: f.pais, ciudad: f.ciudad || '', lat: f.lat, lon: f.lon, inicio: f.inicio || '', fin: f.fin || '', diario: f.diario || '', sola: !!f.sola, extra: f.extra || {}, fotos: [] });
   const viajeAFila = v => ({ pais: v.pais, ciudad: v.ciudad || null, lat: v.lat ?? null, lon: v.lon ?? null, inicio: v.inicio || null, fin: v.fin || null, diario: v.diario || null, sola: !!v.sola, extra: v.extra || {} });
   const filaADeseo = f => ({ id: f.id, pais: f.pais, ciudad: f.ciudad || '', lat: f.lat, lon: f.lon, nota: f.nota || '', fecha: f.fecha || '', extra: f.extra || {} });
   const deseoAFila = d => ({ pais: d.pais, ciudad: d.ciudad || null, lat: d.lat ?? null, lon: d.lon ?? null, nota: d.nota || null, fecha: d.fecha || null, extra: d.extra || {} });
 
   // ---------- API pública ----------
-  const datos = { viajes: [], deseos: [], ajustes: { maleta: [], compartir: false, compartir_diario: false, token: '', extra: {} } };
+  const datos = { viajes: [], deseos: [], ajustes: { maleta: [], compartir: false, compartir_diario: false, token: '', extra: {} }, perfiles: [], perfil: null, mensajes: [], yo: '' };
 
   const Store = {
     MODO_PRUEBA,
@@ -116,7 +116,7 @@
       if (!r.ok) throw new Error('Email o contraseña incorrectos');
       guardaSesion(await r.json());
     },
-    salir() { sesion = null; ls.del(LS_SESION); ls.del(LS_CACHE); },
+    salir() { sesion = null; ls.del(LS_SESION); ls.del(LS_CACHE); ls.del('mv-perfil'); },
     async cambiarPassword(nueva) {
       const r = await fetch(`${URL_SB}/auth/v1/user`, { method: 'PUT', headers: await cabeceras({ 'Content-Type': 'application/json' }), body: JSON.stringify({ password: nueva }) });
       if (!r.ok) throw new Error('No se pudo cambiar: ' + (await r.text()));
@@ -138,12 +138,20 @@
         }
         return;
       }
-      const [viajes, fotos, deseos, ajustes] = await Promise.all([
+      const yo = sesion.user.id;
+      const [viajes, fotos, deseos, ajustes, perfiles, miembros, mensajes] = await Promise.all([
         rest('viajes?select=*&order=inicio.desc.nullslast'),
         rest('fotos?select=*&order=creado.asc'),
         rest('deseos?select=*&order=fecha.asc.nullslast,creado.asc'),
-        rest('ajustes?select=*')
+        rest('ajustes?select=*'),
+        rest('perfiles?select=*').catch(() => []),
+        rest('viaje_miembros?select=*').catch(() => []),
+        rest('mensajes?select=*&order=creado.asc').catch(() => [])
       ]);
+      datos.yo = yo;
+      datos.perfiles = perfiles;
+      datos.perfil = perfiles.find(p => p.user_id === yo) || null;
+      datos.mensajes = mensajes;
       let aj = ajustes[0];
       if (!aj) aj = (await rest('ajustes', { method: 'POST', body: {} }))[0];
       const rutas = [];
@@ -153,8 +161,9 @@
       datos.viajes = viajes.map(f => (porId[f.id] = filaAViaje(f)));
       fotos.forEach(f => {
         const v = porId[f.viaje_id];
-        if (v) v.fotos.push({ id: f.id, path: f.ruta, thumb: f.miniatura, instax: !!f.instax, billete: !!f.billete, audio: !!f.audio, reserva: !!f.reserva, nombre: f.nombre || '', tipo: f.tipo || '', url: urls[f.ruta] || '', thumbUrl: urls[f.miniatura] || urls[f.ruta] || '' });
+        if (v) v.fotos.push({ id: f.id, autor: f.user_id, path: f.ruta, thumb: f.miniatura, instax: !!f.instax, billete: !!f.billete, audio: !!f.audio, reserva: !!f.reserva, nombre: f.nombre || '', tipo: f.tipo || '', url: urls[f.ruta] || '', thumbUrl: urls[f.miniatura] || urls[f.ruta] || '' });
       });
+      miembros.forEach(m => { const v = porId[m.viaje_id]; if (v) v.miembros.push(m.user_id); });
       datos.deseos = deseos.map(filaADeseo);
       datos.ajustes = { maleta: aj.maleta || [], compartir: !!aj.compartir, compartir_diario: !!aj.compartir_diario, token: aj.token, extra: aj.extra || {} };
       ls.set(LS_CACHE, datos);
@@ -174,7 +183,7 @@
         else { const i = datos.viajes.findIndex(x => x.id === v.id); datos.viajes[i] = Object.assign(datos.viajes[i], v); }
       } else if (!v.id) {
         const fila = (await rest('viajes', { method: 'POST', body: viajeAFila(v) }))[0];
-        Object.assign(v, { id: fila.id, fotos: v.fotos || [] });
+        Object.assign(v, { id: fila.id, duenio: fila.user_id, miembros: [], fotos: v.fotos || [] });
         datos.viajes.push(v);
       } else {
         await rest(`viajes?id=eq.${v.id}`, { method: 'PATCH', body: viajeAFila(v) });
@@ -182,6 +191,61 @@
       }
       this.guardarLocal();
       return v;
+    },
+
+    // ---------- Familia: perfiles, viajes compartidos y mensajes ----------
+    esMio(v) { return MODO_PRUEBA || !v.duenio || v.duenio === datos.yo; },
+    nombreDe(id) { const p = datos.perfiles.find(x => x.user_id === id); return p && p.nombre ? p.nombre : 'Alguien'; },
+    otros() { return datos.perfiles.filter(p => p.user_id !== datos.yo && p.nombre); },
+
+    async guardarPerfil(p) {
+      const r = await fetch(`${URL_SB}/rest/v1/perfiles?on_conflict=user_id`, {
+        method: 'POST', headers: await cabeceras({ 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=representation' }),
+        body: JSON.stringify(Object.assign({ user_id: datos.yo }, p))
+      });
+      if (!r.ok) throw new Error(await r.text());
+      const fila = (await r.json())[0];
+      datos.perfil = fila;
+      datos.perfiles = datos.perfiles.filter(x => x.user_id !== fila.user_id).concat([fila]);
+      this.guardarLocal();
+      return fila;
+    },
+
+    async guardarMiembros(v, ids) {
+      if (MODO_PRUEBA) return;
+      ids = [...new Set(ids)].filter(id => id && id !== v.duenio);
+      const quitar = v.miembros.filter(id => !ids.includes(id));
+      const poner = ids.filter(id => !v.miembros.includes(id));
+      for (const id of quitar) await rest(`viaje_miembros?viaje_id=eq.${v.id}&user_id=eq.${id}`, { method: 'DELETE' });
+      if (poner.length) await rest('viaje_miembros', { method: 'POST', body: poner.map(id => ({ viaje_id: v.id, user_id: id })), headers: { Prefer: 'return=minimal' } });
+      v.miembros = ids;
+      this.guardarLocal();
+    },
+
+    async salirDeViaje(v) {
+      await rest(`viaje_miembros?viaje_id=eq.${v.id}&user_id=eq.${datos.yo}`, { method: 'DELETE' });
+      datos.viajes = datos.viajes.filter(x => x.id !== v.id);
+      this.guardarLocal();
+    },
+
+    async enviarMensaje(m) {
+      const fila = (await rest('mensajes', { method: 'POST', body: m }))[0];
+      datos.mensajes.push(fila);
+      return fila;
+    },
+    async marcarMensajeVisto(m) {
+      m.visto = true;
+      try { await rest(`mensajes?id=eq.${m.id}`, { method: 'PATCH', body: { visto: true } }); } catch (e) { }
+      this.guardarLocal();
+    },
+    async borrarMensaje(id) {
+      await rest(`mensajes?id=eq.${id}`, { method: 'DELETE' });
+      datos.mensajes = datos.mensajes.filter(m => m.id !== id);
+    },
+
+    async descargarFoto(f) {
+      const r = await fetch(f.url || f.thumbUrl);
+      return await r.blob();
     },
 
     async borrarViaje(id) {

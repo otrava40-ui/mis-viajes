@@ -481,7 +481,7 @@
     if (!SOLO_LECTURA) html += `<h3 class="sec-tit">💸 Gastos</h3><div class="tarjeta gastos">
       ${g.items.map((x, i) => `<div class="gasto"><span>${esc(x.c)}</span><b>${nf.format(+x.i || 0)} €</b><button class="btn-icono" data-borrar-gasto="${i}">✕</button></div>`).join('')}
       <form class="fila-buscar" data-gasto><input class="campo" name="c" placeholder="Concepto (vuelos, hotel…)"><input class="campo importe" name="i" type="number" inputmode="decimal" step="0.01" placeholder="€"><button class="btn mini">＋</button></form>
-      ${total ? `<div class="gasto-total"><span>Total</span><b>${nf.format(Math.round(total * 100) / 100)} €</b>${v.inicio && dias(v.inicio, v.fin) > 1 ? `<small>${nf.format(Math.round(total / dias(v.inicio, v.fin)))} € / día</small>` : ''}</div>` : ''}</div>`;
+      ${total ? `<div class="gasto-total"><span>Total</span><b>${nf.format(Math.round(total * 100) / 100)} €</b>${v.inicio && dias(v.inicio, v.fin) > 1 ? `<small>${nf.format(Math.round(total / dias(v.inicio, v.fin)))} € / día</small>` : ''}</div>` : ''}${window.EXTRAS3.htmlReparto(v)}</div>`;
 
     // Billetes y entradas
     const billetes = v.fotos.map((f, i) => ({ f, i })).filter(x => x.f.billete);
@@ -501,6 +501,7 @@
     const { S, toast, verFoto, abrirHoja, esc, P } = A();
     const e = ex(v);
     const guardar = async () => { try { await S.guardarViaje(v); } catch (er) { toast('No se pudo guardar'); } };
+    window.EXTRAS3.ajustarFormGastos(v, h);
     h.querySelectorAll('[data-valorar] [data-v]').forEach(b => b.onclick = async () => { e.valoracion = +b.dataset.v === e.valoracion ? 0 : +b.dataset.v; Efectos.click(); await guardar(); refrescar(); });
     h.querySelectorAll('[data-dia]').forEach(b => b.onclick = () => diaDiario(v, b.dataset.dia, refrescar));
     h.querySelectorAll('[data-borrar-sitio]').forEach(b => b.onclick = async () => { e.sitios.splice(+b.dataset.borrarSitio, 1); await guardar(); refrescar(); A().render(); });
@@ -520,7 +521,8 @@
       ev.preventDefault();
       const c = fg.c.value.trim(), i = parseFloat(fg.i.value.replace(',', '.'));
       if (!c || isNaN(i)) { toast('Pon concepto e importe'); return; }
-      e.gastos = e.gastos || { items: [] }; e.gastos.items.push({ c, i }); await guardar(); refrescar();
+      const item = { c, i }; if (fg.q) item.quien = fg.q.value;
+      e.gastos = e.gastos || { items: [] }; e.gastos.items.push(item); await guardar(); refrescar();
     };
     h.querySelectorAll('[data-borrar-gasto]').forEach(b => b.onclick = async () => { e.gastos.items.splice(+b.dataset.borrarGasto, 1); await guardar(); refrescar(); });
     const billetes = v.fotos.filter(f => f.billete).map(f => ({ v, f }));
@@ -635,7 +637,7 @@
   }
 
   // ===================== MENSAJES DE LA FAMILIA =====================
-  function mensajes() { return (A().C.MENSAJES_FAMILIA || []).filter(m => m.pais && m.texto); }
+  function mensajes() { const bd = window.EXTRAS3 && window.EXTRAS3.mensajesPais(); return bd || (A().C.MENSAJES_FAMILIA || []).filter(m => m.pais && m.texto); }
   function carta(m, titulo) {
     const { esc, P, pais } = A();
     const el = capaPantalla('carta-capa', `<div class="sobre"><div class="carta"><p class="para">${titulo || `${P.bandera(m.pais)} Un mensaje escondido en ${esc(pais(m.pais).nombre)}`}</p><h2>${esc(m.titulo || 'Para ti')}</h2><p>${esc(m.texto).replace(/\n/g, '<br>')}</p>${m.de ? `<p class="firma">— ${esc(m.de)}</p>` : ''}<button class="btn ancho" data-ok>💛 Guardar en el corazón</button></div></div>`);

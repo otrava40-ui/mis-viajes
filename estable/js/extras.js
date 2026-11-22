@@ -5,7 +5,7 @@
   const anioActual = () => +hoy().slice(0, 4);
   const azar = arr => arr[Math.floor(Math.random() * arr.length)];
   const barajar = arr => arr.map(x => [Math.random(), x]).sort((a, b) => a[0] - b[0]).map(x => x[1]);
-  const fotosNormales = v => v.fotos.filter(f => !f.billete && !f.audio);
+  const fotosNormales = v => v.fotos.filter(f => !f.billete && !f.audio && !f.reserva);
   const ex = o => (o.extra = o.extra || {});
 
   function capaPantalla(clase, html) {
@@ -358,11 +358,13 @@
     const lat = obj && obj.lat != null ? obj.lat : c.lat, lon = obj && obj.lon != null ? obj.lon : c.lon;
     const diasF = Math.ceil((new Date(prox.fecha + 'T00:00:00') - new Date(hoy() + 'T00:00:00')) / 864e5);
     const h = abrirHoja(`<div class="pais-cab"><span class="pais-bandera">${P.bandera(prox.pais)}</span><div><h2>${esc(prox.ciudad || c.nombre)}</h2><div class="sub">${fecha(prox.fecha)} · faltan ${diasF} días</div></div></div>
-      <div data-tiempo><div class="cargando">Mirando el tiempo…</div></div>
+      <div data-destino></div>
+      ${esViaje && window.EXTRAS2.reservasDe(obj).length ? `<div data-reservas>${window.EXTRAS2.htmlReservas(obj, '🎫 Tus reservas, a mano')}</div>` : ''}
       <h3 class="sec-tit">✅ Antes de salir</h3><div class="tarjeta checklist"></div>
       ${fichaPaisHTML(prox.pais, true)}
       <button class="btn sec ancho" data-pais>Ver ${esc(c.nombre)} en el mapa</button>`, { completa: true });
-    tiempoHTML(lat, lon, prox.fecha).then(t => { const el = h.querySelector('[data-tiempo]'); if (el) el.innerHTML = t; });
+    window.EXTRAS2.rellenarDestino(h.querySelector('[data-destino]'), prox.pais, lat, lon, prox.fecha, obj, () => esViaje ? S.guardarViaje(obj) : S.guardarDeseo(obj));
+    const rv = h.querySelector('[data-reservas]'); if (rv) window.EXTRAS2.enlazarReservas(obj, rv, () => { h.cerrar(); abrirProximo(prox); });
     const lista = h.querySelector('.checklist');
     const pintar = () => {
       const marcas = obj ? (ex(obj).checklist || {}) : {};
@@ -388,7 +390,9 @@
     const enViaje = S.datos.viajes.find(v => v.inicio && v.inicio <= h && (v.fin || v.inicio) >= h);
     if (enViaje) {
       const dia = dias(enViaje.inicio, h), total = dias(enViaje.inicio, enViaje.fin);
-      cont.innerHTML = `<div class="recuerdo en-viaje"><span class="rec-ico">📍</span><div><small>¡Estás de viaje!</small><b>${esc(enViaje.ciudad || pais(enViaje.pais).nombre)} · día ${dia} de ${total}</b></div><button class="btn mini" data-hoy>✍️ Hoy</button></div>`;
+      const nRes = window.EXTRAS2.reservasDe(enViaje).length;
+      cont.innerHTML = `<div class="recuerdo en-viaje"><span class="rec-ico">📍</span><div><small>¡Estás de viaje!</small><b>${esc(enViaje.ciudad || pais(enViaje.pais).nombre)} · día ${dia} de ${total}</b></div>${nRes ? '<button class="btn mini sec" data-reservas>🎫</button>' : ''}<button class="btn mini" data-hoy>✍️ Hoy</button></div>`;
+      const br = cont.querySelector('[data-reservas]'); if (br) br.onclick = e => { e.stopPropagation(); const rs = window.EXTRAS2.reservasDe(enViaje); if (rs.length === 1) window.EXTRAS2.verReserva(rs[0]); else A().abrirViaje(enViaje.id); };
       cont.querySelector('[data-hoy]').onclick = () => diaDiario(enViaje, h);
       cont.querySelector('.recuerdo').onclick = e => { if (!e.target.closest('button')) A().abrirViaje(enViaje.id); };
       cont.hidden = false; return;
@@ -675,6 +679,7 @@
 
       <h2 class="vista-tit">🎁 Extras</h2><div class="tarjeta">
         <button class="fila-opcion" data-poster>🖼️ Crear póster de mi mapa para imprimir</button>
+        <button class="fila-opcion" data-fotolibro>📖 Fotolibro de mis viajes (PDF)</button>
         <button class="fila-opcion" data-wrapped>🎬 Ver mi año viajero</button>
         <button class="fila-opcion" data-quiz>🧠 Jugar al quiz de mis viajes</button>
         <button class="fila-opcion" data-ruleta>🎲 Ruleta: ¿a dónde voy ahora?</button>
@@ -727,6 +732,7 @@
     el.querySelectorAll('[data-tema]').forEach(b => b.onclick = async () => { e.tema = b.dataset.tema; aplicarTema(); await guardaAj(); render(); });
     el.querySelector('[data-sonido]').onchange = ev => { Efectos.sonidoActivo = ev.target.checked; if (ev.target.checked) Efectos.exito(); };
     el.querySelector('[data-poster]').onclick = poster;
+    el.querySelector('[data-fotolibro]').onclick = () => window.EXTRAS2.elegirFotolibro();
     el.querySelector('[data-wrapped]').onclick = wrapped;
     el.querySelector('[data-quiz]').onclick = quiz;
     el.querySelector('[data-ruleta]').onclick = ruleta;
@@ -885,6 +891,7 @@
       <button data-c="rasca" class="${rasca ? 'on' : ''}"><span>✦</span>Modo rasca</button>
       <button data-c="noche" class="${o.noche ? 'on' : ''}"><span>🌙</span>Modo noche</button>
       <button data-c="rutas" class="${o.rutas ? 'on' : ''}"><span>🧵</span>Rutas desde casa</button>
+      <button data-c="vuelos" class="${o.vuelos ? 'on' : ''}"><span>✈️</span>Mis vuelos</button>
       <button data-c="globo"><span>🌍</span>Globo 3D</button>
       <button data-c="espana"><span>🇪🇸</span>España</button>
       ${o.otros ? '<button data-c="comparar" class="on"><span>🤝</span>Comparando mapas</button>' : ''}`;
@@ -897,6 +904,7 @@
       if (c === 'rasca') A().alternarRasca();
       if (c === 'noche') { M.setOpcion('noche', !o.noche); localStorage.setItem('mv-noche', o.noche ? '1' : ''); }
       if (c === 'rutas') { M.setOpcion('rutas', !o.rutas); localStorage.setItem('mv-rutas', o.rutas ? '1' : ''); }
+      if (c === 'vuelos') { M.setOpcion('vuelos', !o.vuelos); localStorage.setItem('mv-vuelos', o.vuelos ? '1' : ''); if (o.vuelos && !o.lineasVuelo.length) toast('Aún no hay vuelos: añádelos dentro de cada viaje'); }
       if (c === 'globo') { pop.remove(); globo(); return; }
       if (c === 'espana') { pop.remove(); mapaEspana(); return; }
       if (c === 'comparar') { M.setOpcion('otros', null); toast('Comparación desactivada'); }

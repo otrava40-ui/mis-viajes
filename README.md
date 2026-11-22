@@ -38,6 +38,8 @@ Tiempo total: unos 30–40 minutos la primera vez.
    - Email: el de ella.
    - Contraseña: una provisional fácil (ella podrá cambiarla en *Más*).
    - ✅ Marca **Auto Confirm User**.
+   Repite este paso para **cada persona**: Lara, Paul, Sergio, Blanca y "Jesús y Chus" (con el email que use tu suegra).
+   La primera vez que cada uno entre, la app le pedirá **su nombre y su ciudad**.
 5. **Cerrar la puerta a desconocidos:** en **Authentication → Sign In / Providers**, desactiva **Allow new users to sign up**. Así nadie más puede crearse una cuenta.
 6. **Copiar las llaves:** en **Project Settings → API Keys** (o **Data API**) copia dos cosas:
    - **Project URL**, del tipo `https://abcdxyz.supabase.co`
@@ -60,9 +62,25 @@ Tiempo total: unos 30–40 minutos la primera vez.
 5. **Permitir la tarea automática:** **Settings → Actions → General → Workflow permissions → Read and write permissions → Save**.
 6. Pruébala: **Actions → Mantener Supabase despierto → Run workflow**. Debe salir en verde ✅.
 
+## PASO 3 bis · El mensaje de Navidad (privado)
+
+Con Supabase conectado, el mensaje ya **no** va en `config.js` (ese archivo es público en GitHub):
+1. Entra en la app con **tu** cuenta (Sergio).
+2. **Más → 💌 Mensajes para la familia → Escribir un mensaje**.
+3. Para: **Lara** · Cuándo: **Al entrar en la app** · escribe el texto y firma *Sergio y Blanca*.
+4. También puedes esconder mensajes en países (*Al visitar un país*), para ella o para cualquiera.
+5. Borra el texto de `MENSAJE_SORPRESA` en `config.js` para que no quede a la vista en GitHub.
+
+## Viajes compartidos
+
+- Al crear o editar un viaje, en **👥 Compartir este viaje con** eliges a quién. Si no eliges a nadie, es privado.
+- Los del viaje pueden ver y subir fotos, diario, gastos y reservas, y **descargar** las fotos de los demás (⬇️ en cada foto o "Descargar las fotos").
+- Solo quien creó el viaje puede borrarlo o cambiar con quién se comparte; los demás pueden **salirse**.
+- En los gastos de un viaje compartido se elige **quién pagó** y la app calcula **quién debe a quién**.
+
 ## PASO 4 · Cargar sus viajes antes de regalárselo
 
-1. Abre la web en tu ordenador y entra **con el email y la contraseña de ella**.
+1. Abre la web en tu ordenador y entra **con el email y la contraseña de ella** (o crea los viajes desde tu cuenta y compártelos con ella).
 2. Para meter muchos viajes de golpe, usa **Más → Importar viajes desde una lista**. El formato está en `plantilla-importar.txt`:
    ```
    Italia; Roma; 12/04/2023; 16/04/2023; Primer viaje con amigas
@@ -111,10 +129,10 @@ La primera vez que la abra desde el icono verá tu mensaje sorpresa ❄️. Desp
 
 ## 🛟 Salvavidas: volver a la versión anterior
 
-La versión anterior (la 3.1) va guardada dentro de la web, en la carpeta `estable/`:
+La versión anterior (la 4) va guardada dentro de la web, en la carpeta `estable/`:
 
 - **Para usarla sin tocar nada:** abre `https://TU-USUARIO.github.io/mis-viajes/estable/`. Los datos son los mismos, porque están en el mismo sitio.
-- **Para volver a ella del todo:** sube a GitHub el contenido de `mis-viajes-v31-estable.zip`, igual que cuando actualizas. (La v2 sigue en `mis-viajes-v2-estable.zip`.)
+- **Para volver a ella del todo:** sube a GitHub el contenido de `mis-viajes-v4-estable.zip`, igual que cuando actualizas. (La v2 sigue en `mis-viajes-v2-estable.zip`.)
 - **Otra opción desde GitHub:** pestaña **Commits** → abre el commit que quieras deshacer → **⋯ → Revert**.
 
 ## Qué hay en cada archivo

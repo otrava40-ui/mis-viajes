@@ -3,11 +3,29 @@
   let ctxAudio = null;
   const activo = () => { try { return localStorage.getItem('mv-sonido') !== 'no'; } catch (e) { return true; } };
 
-  function tono(frecs, dur, tipo, vol) {
+  // Los móviles bloquean el audio hasta que tocas la pantalla: lo "despertamos" con el primer toque
+  function audio() {
+    if (!ctxAudio) { const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null; ctxAudio = new AC(); }
+    if (ctxAudio.state === 'suspended' || ctxAudio.state === 'interrupted') ctxAudio.resume().catch(() => { });
+    return ctxAudio;
+  }
+  const despertar = () => {
+    const c = audio(); if (!c) return;
+    // Un sonido silencioso de 1 ms desbloquea el audio en iPhone
+    const b = c.createBuffer(1, 1, 22050), src = c.createBufferSource(); src.buffer = b; src.connect(c.destination); src.start(0);
+  };
+  ['touchend', 'pointerdown', 'keydown'].forEach(ev => document.addEventListener(ev, despertar, { passive: true, capture: true }));
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && ctxAudio) ctxAudio.resume().catch(() => { }); });
+  let ultimoTono = 0;
+
+  function tono(frecs, dur, tipo, vol, fuerza) {
     if (!activo()) return;
+    const ahora = performance.now();
+    if (!fuerza && ahora - ultimoTono < 35) return;   // evita saturar con muchos sonidos seguidos
+    ultimoTono = ahora;
     try {
-      ctxAudio = ctxAudio || new (window.AudioContext || window.webkitAudioContext)();
-      const t0 = ctxAudio.currentTime;
+      const ctx = audio(); if (!ctx || ctx.state !== 'running') return;
+      const t0 = ctxAudio.currentTime + 0.01;
       frecs.forEach((f, i) => {
         const o = ctxAudio.createOscillator(), g = ctxAudio.createGain();
         o.type = tipo || 'sine'; o.frequency.value = f;
@@ -21,10 +39,11 @@
   const Efectos = {
     get sonidoActivo() { return activo(); },
     set sonidoActivo(v) { try { localStorage.setItem('mv-sonido', v ? 'si' : 'no'); } catch (e) { } },
-    exito() { tono([523, 659, 784, 1046], 0.22, 'triangle', 0.1); },
-    logro() { tono([784, 988, 1175, 1568], 0.18, 'sine', 0.1); },
+    exito() { tono([523, 659, 784, 1046], 0.22, 'triangle', 0.1, true); },
+    logro() { tono([784, 988, 1175, 1568], 0.18, 'sine', 0.1, true); },
     click() { tono([1200], 0.04, 'square', 0.03); },
-    rascar() { tono([300 + Math.random() * 200], 0.03, 'sawtooth', 0.015); },
+    rascar() { tono([300 + Math.random() * 200], 0.04, 'triangle', 0.02); },
+    contexto: () => audio(),
 
     confeti(cantidad) {
       const cv = document.createElement('canvas');

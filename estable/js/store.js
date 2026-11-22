@@ -133,6 +133,7 @@
       if (MODO_PRUEBA) {
         this.cargarCache();
         for (const v of datos.viajes) for (const f of v.fotos) {
+          if (!f.url && f.reserva) { f.url = await idb.get('r-' + f.id) || ''; f.thumbUrl = f.tipo === 'pdf' ? '' : f.url; continue; }
           if (!f.url) { if (f.audio) f.url = await idb.get(f.id + '-a') || ''; else { f.url = await idb.get(f.id + '-g') || ''; f.thumbUrl = await idb.get(f.id + '-p') || f.url; } }
         }
         return;
@@ -152,7 +153,7 @@
       datos.viajes = viajes.map(f => (porId[f.id] = filaAViaje(f)));
       fotos.forEach(f => {
         const v = porId[f.viaje_id];
-        if (v) v.fotos.push({ id: f.id, path: f.ruta, thumb: f.miniatura, instax: !!f.instax, billete: !!f.billete, audio: !!f.audio, url: urls[f.ruta] || '', thumbUrl: urls[f.miniatura] || urls[f.ruta] || '' });
+        if (v) v.fotos.push({ id: f.id, path: f.ruta, thumb: f.miniatura, instax: !!f.instax, billete: !!f.billete, audio: !!f.audio, reserva: !!f.reserva, nombre: f.nombre || '', tipo: f.tipo || '', url: urls[f.ruta] || '', thumbUrl: urls[f.miniatura] || urls[f.ruta] || '' });
       });
       datos.deseos = deseos.map(filaADeseo);
       datos.ajustes = { maleta: aj.maleta || [], compartir: !!aj.compartir, compartir_diario: !!aj.compartir_diario, token: aj.token, extra: aj.extra || {} };
@@ -236,6 +237,36 @@
       return nota;
     },
 
+    // Reservas del viaje (tarjetas de embarque, hotel…): imagen o PDF, con copia en el móvil para verlas sin internet
+    async subirReserva(viaje, file, nombre) {
+      const esPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+      const blob = esPdf ? file : await comprimir(file, 2200, 0.88);
+      const id = uid(), tipo = esPdf ? 'pdf' : 'img';
+      const dataURL = await blobADataURL(blob);
+      let r;
+      if (MODO_PRUEBA) {
+        await idb.put('r-' + id, dataURL);
+        r = { id, reserva: true, nombre, tipo, url: dataURL, thumbUrl: esPdf ? '' : dataURL };
+      } else {
+        const ruta = `${sesion.user.id}/${viaje.id}/reserva-${id}.${esPdf ? 'pdf' : 'jpg'}`;
+        const resp = await fetch(`${URL_SB}/storage/v1/object/${BUCKET}/${ruta}`, { method: 'POST', headers: await cabeceras({ 'Content-Type': esPdf ? 'application/pdf' : 'image/jpeg' }), body: blob });
+        if (!resp.ok) throw new Error('No se pudo subir la reserva');
+        const fila = (await rest('fotos', { method: 'POST', body: { viaje_id: viaje.id, ruta, reserva: true, nombre, tipo } }))[0];
+        await idb.put('r-' + fila.id, dataURL);
+        r = { id: fila.id, path: ruta, reserva: true, nombre, tipo, url: URL.createObjectURL(blob), thumbUrl: esPdf ? '' : URL.createObjectURL(blob) };
+      }
+      viaje.fotos.push(r);
+      this.guardarLocal();
+      return r;
+    },
+    // Devuelve la reserva desde la copia del móvil (sin internet) o la descarga y la guarda
+    async reservaLocal(f) {
+      const guardada = await idb.get('r-' + f.id);
+      if (guardada) return guardada;
+      if (!f.url) return null;
+      try { const b = await (await fetch(f.url)).blob(); const d = await blobADataURL(b); await idb.put('r-' + f.id, d); return d; } catch (e) { return f.url; }
+    },
+
     // Documentos de viaje: se guardan SOLO en este dispositivo (privados y sin internet)
     docs: {
       lista() { return ls.get('mv-docs', []); },
@@ -259,6 +290,7 @@
     async borrarFoto(viaje, fotoId) {
       const f = viaje.fotos.find(x => x.id === fotoId);
       if (!f) return;
+      await idb.del('r-' + f.id);
       if (MODO_PRUEBA) { await idb.del(f.id + '-g'); await idb.del(f.id + '-p'); await idb.del(f.id + '-a'); }
       else {
         await fetch(`${URL_SB}/storage/v1/object/${BUCKET}`, { method: 'DELETE', headers: await cabeceras({ 'Content-Type': 'application/json' }), body: JSON.stringify({ prefixes: [f.path, f.thumb].filter(Boolean) }) });

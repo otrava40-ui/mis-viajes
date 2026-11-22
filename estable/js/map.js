@@ -100,6 +100,7 @@
       this.capaPaises = this.g.append('g').attr('class', 'paises');
       this.capaPuntos = this.g.append('g').attr('class', 'mini-paises');
       this.capaRutas = this.g.append('g').attr('class', 'rutas');
+      this.capaLineasVuelo = this.g.append('g').attr('class', 'lineas-vuelo');
       this.capaPins = this.g.append('g').attr('class', 'pins');
       this.capaSitios = this.g.append('g').attr('class', 'sitios');
       this.capaVuelo = this.g.append('g').attr('class', 'vuelo');
@@ -134,12 +135,14 @@
       this.capaPins.selectAll('circle').attr('r', d => (d.tipo === 'deseo' ? 3.2 : 3.5) / s).attr('stroke-width', 1.3 / s);
       this.capaPuntos.selectAll('circle').attr('r', 3.5 / s).attr('stroke-width', 1 / s);
       this.capaRutas.selectAll('path').attr('stroke-width', 1.4 / s).attr('stroke-dasharray', `${4 / s} ${3 / s}`);
+      this.capaLineasVuelo.selectAll('path').attr('stroke-width', 1.6 / s);
+      this.capaLineasVuelo.selectAll('circle').attr('r', 2.6 / s).attr('stroke-width', 1 / s);
       this.capaSitios.style('display', k >= 7 ? null : 'none').selectAll('text').attr('font-size', 14 / k);
       this.capaVuelo.selectAll('path.estela').attr('stroke-width', 2 / s);
       this.capaVuelo.selectAll('text').attr('font-size', 22 / s);
     },
 
-    opciones: { rutas: false, noche: false, otros: null, sitios: [] },
+    opciones: { rutas: false, noche: false, otros: null, sitios: [], vuelos: false, lineasVuelo: [] },
     setOpcion(nombre, valor) { this.opciones[nombre] = valor; if (this.svg) this.pintar(this.estado, this.pins, this.rasca); },
 
     pintar(estado, pins, rasca) {
@@ -180,6 +183,12 @@
       const rutas = this.opciones.rutas ? pins.filter(p => p.tipo === 'viaje' && p.lat != null) : [];
       this.capaRutas.selectAll('path').data(rutas).join('path')
         .attr('d', p => this.path({ type: 'LineString', coordinates: [[casa.lon, casa.lat], [p.lon, p.lat]] }));
+
+      // Vuelos registrados
+      const lv = this.opciones.vuelos ? (this.opciones.lineasVuelo || []) : [];
+      this.capaLineasVuelo.selectAll('path').data(lv).join('path').attr('d', l => this.path({ type: 'LineString', coordinates: l }));
+      const aeros = []; lv.forEach(l => aeros.push(l[0], l[1]));
+      this.capaLineasVuelo.selectAll('circle').data(aeros).join('circle').attr('cx', p => this.proy(p)[0]).attr('cy', p => this.proy(p)[1]);
 
       // Sitios favoritos (se ven al hacer zoom)
       this.capaSitios.selectAll('text').data(this.opciones.sitios || []).join('text')

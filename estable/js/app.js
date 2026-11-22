@@ -132,6 +132,7 @@
     $$('.vista').forEach(v => v.hidden = v.id !== 'vista-' + vista);
     $('#titulo-vista').textContent = TITULOS[vista] || '';
     M.opciones.sitios = EXTRAS.sitiosMapa();
+    M.opciones.lineasVuelo = EXTRAS2.lineasVuelos();
     pintarMapa(s);
     renderInicio(s);
     EXTRAS.revisarLogros(s);
@@ -211,6 +212,7 @@
     const html = `
       <div class="pais-cab"><span class="pais-bandera">${P.bandera(code)}</span><div><h2>${esc(p.nombre)}</h2><div class="sub">${esc(P.CONTINENTES[p.cont] || '')} · ${estadoTxt}</div></div></div>
       <div class="lista-viajes">${viajes.map(tarjetaViaje).join('') || '<p class="vacio">Todavía no hay viajes aquí.</p>'}</div>
+      <div data-curioso></div>
       ${esCasa ? '' : EXTRAS.fichaPaisHTML(code)}
       ${SOLO_LECTURA ? '' : `<div class="fila-botones">
         <button class="btn" data-nuevo>＋ Añadir viaje</button>
@@ -221,13 +223,14 @@
     if (vista === 'mapa' && code !== C.CASA.pais && (hechos.length || deseo)) M.volar(conCoord ? conCoord.lat : (deseo && deseo.lat != null ? deseo.lat : p.lat), conCoord ? conCoord.lon : (deseo && deseo.lon != null ? deseo.lon : p.lon));
     else M.enfocar(code);
     enlazarTarjetas(h);
+    EXTRAS2.datoCurioso($('[data-curioso]', h), code);
     const b = $('[data-nuevo]', h); if (b) b.onclick = () => formViaje({ pais: code });
     const d = $('[data-deseo]', h); if (d) d.onclick = () => { h.cerrar(); formDeseo({ pais: code }); };
     const q = $('[data-quitar-deseo]', h); if (q) q.onclick = async () => { await S.borrarDeseo(deseo.id); h.cerrar(); render(); };
   }
 
   function tarjetaViaje(v) {
-    const normales = v.fotos.filter(f => !f.billete && !f.audio);
+    const normales = v.fotos.filter(f => !f.billete && !f.audio && !f.reserva);
     const fotos = normales.slice(0, 4).map(f => `<img src="${esc(f.thumbUrl)}" alt="" loading="lazy">`).join('');
     return `<button class="tarjeta-viaje${esFuturo(v) ? ' futuro' : ''}" data-viaje="${v.id}">
       <div class="tv-cab"><span class="tv-bandera">${P.bandera(v.pais)}</span><div class="tv-txt"><b>${esc(v.ciudad || pais(v.pais).nombre)}</b><span>${rangoFechas(v.inicio, v.fin)}${esFuturo(v) ? ' · próximo' : ''}${v.sola ? ' · 🎒 sola' : ''}${v.extra && v.extra.valoracion ? ' · ' + '❤️'.repeat(v.extra.valoracion) : ''}</span></div></div>
@@ -250,6 +253,7 @@
       <div class="galeria">${EXTRAS.fotosNormales(v).map((f, i) => `<button class="foto${f.instax ? ' instax' : ''}" data-i="${i}"><img src="${esc(f.thumbUrl)}" alt="" loading="lazy"></button>`).join('')}</div>
       ${v.diario ? `<div class="diario"><h3>Diario</h3><p>${esc(v.diario).replace(/\n/g, '<br>')}</p></div>` : ''}
       ${EXTRAS.htmlViajeExtra(v)}
+      ${EXTRAS2.htmlViaje(v)}
       ${SOLO_LECTURA ? '' : `<div class="fila-botones">
         <label class="btn sec">📷 Añadir fotos<input type="file" accept="image/*" multiple hidden data-fotos></label>
         <button class="btn sec" data-editar>✏️ Editar</button>
@@ -260,6 +264,7 @@
     const refrescar = () => { if (!h.isConnected) { const actual = $$('.hoja-capa').pop(); if (actual) { actual.remove(); abrirViaje(v.id, true); } return; } const y = $('.hoja-cuerpo', h).scrollTop; h.remove(); const n = abrirViaje(v.id, true); if (n) $('.hoja-cuerpo', n).scrollTop = y; render(); };
     $$('.galeria .foto', h).forEach(b => b.onclick = () => verFoto(EXTRAS.fotosNormales(v).map(f => ({ v, f })), +b.dataset.i, refrescar));
     EXTRAS.enlazarViajeExtra(v, h, refrescar);
+    EXTRAS2.enlazarViaje(v, h, refrescar);
     if (SOLO_LECTURA) return h;
     $('[data-editar]', h).onclick = () => { h.cerrar(); formViaje(v); };
     $('[data-borrar]', h).onclick = async () => {
@@ -400,6 +405,7 @@
           <label>📍 Sitio favorito</label><input class="campo" name="sitio" value="${esc(e.sitio || '')}" placeholder="El mirador de Santa Lucía">
           <label>😂 Anécdota</label><textarea class="campo" name="anecdota" rows="2" placeholder="Aquella vez que…">${esc(e.anecdota || '')}</textarea>
           <label>🎵 Canción del viaje</label><input class="campo" name="cancion" value="${esc(e.cancion || '')}" placeholder="Nombre de la canción o enlace de Spotify">
+          <label>💰 Presupuesto (€)</label><input class="campo" name="presupuesto" type="number" inputmode="decimal" value="${e.presupuesto || ''}" placeholder="800">
         </details>
         ${nuevo ? `<label>Fotos</label><label class="btn sec ancho">📷 Elegir fotos<input type="file" accept="image/*" multiple hidden name="fotos"></label><div class="n-fotos"></div>
         <label class="check"><input type="checkbox" name="instax"> Son fotos Instax escaneadas</label>` : ''}
@@ -418,6 +424,7 @@
       v.sola = f.sola.checked; v.diario = f.diario.value.trim();
       e.con = f.con.value.split(',').map(x => x.trim()).filter(Boolean);
       ['comida', 'sitio', 'anecdota', 'cancion'].forEach(k => { const val = f[k].value.trim(); if (val) e[k] = val; else delete e[k]; });
+      const pr = parseFloat((f.presupuesto.value || '').replace(',', '.')); if (isNaN(pr)) delete e.presupuesto; else e.presupuesto = pr;
       const antes = calcular().visitados;
       const btn = $('[type=submit]', f); btn.disabled = true; btn.textContent = 'Guardando…';
       try {
@@ -482,7 +489,7 @@
   // ================= VISTA: VIAJES =================
   function renderViajes() {
     $$('#seg-viajes button').forEach(b => b.classList.toggle('on', b.dataset.sub === subVistaViajes));
-    $('#seg-viajes').classList.toggle('der', subVistaViajes !== 'linea');
+    $('#seg-viajes').dataset.pos = { linea: 0, albumes: 1, musica: 2 }[subVistaViajes] || 0;
     const cont = $('#viajes-contenido');
     const todos = [...S.datos.viajes].sort((a, b) => (b.inicio || '0').localeCompare(a.inicio || '0'));
     if (!todos.length) { cont.innerHTML = '<p class="vacio grande">Aún no hay viajes. Pulsa ＋ para añadir el primero.</p>'; return; }
@@ -497,7 +504,8 @@
       if (primero) html += `<div class="linea-inicio">🌱 Aquí empezó todo · ${fecha(primero.inicio)}</div>`;
       cont.innerHTML = html + '</div>';
       enlazarTarjetas(cont);
-    } else renderAlbumes(cont);
+    } else if (subVistaViajes === 'musica') EXTRAS2.renderMusica(cont);
+    else renderAlbumes(cont);
   }
 
   // ================= ÁLBUMES POR PAÍS =================
@@ -541,6 +549,7 @@
       const todas = viajes.flatMap(v => EXTRAS.fotosNormales(v).filter(f => !soloInstax || f.instax).map(f => ({ v, f })));
       const titulo = esInstax ? '📸 Mis Instax' : `${P.bandera(code)} ${esc(pais(code).nombre)}`;
       let html = `<div class="album-cab"><h2>${titulo}</h2><div class="sub">${todas.length} ${todas.length === 1 ? 'foto' : 'fotos'}${esInstax ? '' : ` · ${viajes.length} ${viajes.length === 1 ? 'viaje' : 'viajes'}`}</div></div>`;
+      if (todas.length) html += `<button class="btn sec ancho pres-btn" data-pres>🎬 Ver como presentación</button>`;
       if (!esInstax) html += `<div class="chips"><button class="chip-btn${soloInstax ? '' : ' on'}" data-f="todas">Todas</button><button class="chip-btn${soloInstax ? ' on' : ''}" data-f="instax">Solo Instax</button></div>`;
       let idx = 0;
       viajes.forEach(v => {
@@ -554,6 +563,7 @@
       if (!SOLO_LECTURA && !esInstax) html += `<label class="check"><input type="checkbox" data-instax ${soloInstax ? 'checked' : ''}> Las fotos que añada son Instax escaneadas</label>`;
       cuerpo.innerHTML = html;
       $$('[data-f]', cuerpo).forEach(b => b.onclick = () => { soloInstax = b.dataset.f === 'instax'; pintar(); });
+      const pb = $('[data-pres]', cuerpo); if (pb) pb.onclick = () => EXTRAS2.presentacion(esInstax ? '📸 Mis Instax' : `${P.bandera(code)} ${pais(code).nombre}`, `${todas.length} fotos`, todas.map(x => x.f));
       $$('.foto[data-idx]', cuerpo).forEach(b => b.onclick = () => verFoto(todas, +b.dataset.idx, pintar));
       $$('[data-viaje]', cuerpo).forEach(b => b.onclick = () => abrirViaje(b.dataset.viaje));
       $$('[data-subir]', cuerpo).forEach(inp => inp.onchange = async e => {
@@ -578,7 +588,8 @@
     $('#logros-num').textContent = `${ok} de ${LOGROS.length}`;
     const r = EXTRAS.rango(s.paises);
     $('#pasaporte-num').textContent = `${r.icono} ${r.nombre} · ${s.paises} ${s.paises === 1 ? 'país' : 'países'} · ${s.continentes} ${s.continentes === 1 ? 'continente' : 'continentes'}`;
-    const px = $('#pasaporte-extra'); px.innerHTML = EXTRAS.htmlPasaporteExtra(s); EXTRAS.enlazarPasaporte(px);
+    const px = $('#pasaporte-extra'); px.innerHTML = EXTRAS.htmlPasaporteExtra(s) + '<div id="pasaporte-extra2"></div>'; EXTRAS.enlazarPasaporte(px);
+    const px2 = $('#pasaporte-extra2'); px2.innerHTML = EXTRAS2.htmlPasaporte(s); EXTRAS2.enlazarPasaporte(px2);
     $('#logros').innerHTML = LOGROS.map(l => {
       const hecho = l.ok(s);
       let barra = '';
@@ -612,10 +623,11 @@
     $$('[data-deseo-id]', cont).forEach(el => el.onclick = async () => {
       const d = S.datos.deseos.find(x => x.id === el.dataset.deseoId);
       const h = abrirHoja(`<div class="pais-cab"><span class="pais-bandera">${P.bandera(d.pais)}</span><div><h2>${esc(d.ciudad || pais(d.pais).nombre)}</h2><div class="sub">${esc(d.ciudad ? pais(d.pais).nombre : '')}${d.fecha ? ' · ' + fecha(d.fecha) : ''}</div></div></div>
-        ${d.nota ? `<p class="tv-diario">${esc(d.nota)}</p>` : ''}<div data-tiempo></div>${EXTRAS.fichaPaisHTML(d.pais, true)}
+        ${d.nota ? `<p class="tv-diario">${esc(d.nota)}</p>` : ''}<div data-destino></div><div data-curioso></div>${EXTRAS.fichaPaisHTML(d.pais, true)}
         <div class="fila-botones"><button class="btn" data-fui2>¡Ya fui!</button><button class="btn sec" data-ed2>✏️ Editar</button></div>`, { completa: true });
-      EXTRAS.tiempoHTML(d.lat ?? pais(d.pais).lat, d.lon ?? pais(d.pais).lon, d.fecha).then(t => { const x = $('[data-tiempo]', h); if (x) x.innerHTML = t; });
-      $('[data-fui2]', h).onclick = () => { h.cerrar(); formViaje({ pais: d.pais, ciudad: d.ciudad, lat: d.lat, lon: d.lon, inicio: d.fecha || '' }, async () => { await S.borrarDeseo(d.id); }); };
+      EXTRAS2.rellenarDestino($('[data-destino]', h), d.pais, d.lat ?? pais(d.pais).lat, d.lon ?? pais(d.pais).lon, d.fecha, d, () => S.guardarDeseo(d));
+      EXTRAS2.datoCurioso($('[data-curioso]', h), d.pais);
+      $('[data-fui2]', h).onclick = () => { h.cerrar(); formViaje({ pais: d.pais, ciudad: d.ciudad, lat: d.lat, lon: d.lon, inicio: d.fecha || '', extra: d.extra && d.extra.presupuesto ? { presupuesto: d.extra.presupuesto } : {} }, async () => { await S.borrarDeseo(d.id); }); };
       $('[data-ed2]', h).onclick = () => { h.cerrar(); formDeseo(d); };
     });
   }
@@ -898,7 +910,7 @@
     $$('#menu-mas [data-nuevo]').forEach(b => b.onclick = () => { cerrarMenuMas(); b.dataset.nuevo === 'sueno' ? formDeseo({}) : formViaje({}); });
     document.addEventListener('click', e => { if (!e.target.closest('#menu-mas, #btn-nuevo')) cerrarMenuMas(); });
     $('#btn-capas').onclick = e => { e.stopPropagation(); EXTRAS.menuCapas($('#btn-capas')); };
-    M.opciones.noche = !!localStorage.getItem('mv-noche'); M.opciones.rutas = !!localStorage.getItem('mv-rutas');
+    M.opciones.noche = !!localStorage.getItem('mv-noche'); M.opciones.rutas = !!localStorage.getItem('mv-rutas'); M.opciones.vuelos = !!localStorage.getItem('mv-vuelos');
     let mundo = false;
     $('#btn-mundo').onclick = () => { mundo = !mundo; mundo ? M.mundoEntero() : M.reset(); };
     $('#btn-importar').onclick = importar;

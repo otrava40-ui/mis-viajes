@@ -175,7 +175,7 @@
     s.visitados.forEach(c => estado[c] = 'visitado');
     if (C.CONTAR_PAIS_DE_CASA && C.CASA.pais && !viajesHechos().some(v => v.pais === C.CASA.pais)) estado[C.CASA.pais] = 'casa';
     const pins = [
-      ...viajesHechos().filter(v => v.lat != null).map(v => ({ lat: v.lat, lon: v.lon, pais: v.pais, tipo: 'viaje' })),
+      ...viajesHechos().filter(v => v.lat != null).map(v => ({ lat: v.lat, lon: v.lon, pais: v.pais, tipo: EXTRAS3.compartido(v) ? 'viaje compartido' : 'viaje' })),
       ...S.datos.deseos.filter(d => d.lat != null).map(d => ({ lat: d.lat, lon: d.lon, pais: d.pais, tipo: 'deseo' }))
     ];
     M.pintar(estado, pins, modoRasca);
@@ -233,7 +233,7 @@
     const normales = v.fotos.filter(f => !f.billete && !f.audio && !f.reserva);
     const fotos = normales.slice(0, 4).map(f => `<img src="${esc(f.thumbUrl)}" alt="" loading="lazy">`).join('');
     return `<button class="tarjeta-viaje${esFuturo(v) ? ' futuro' : ''}" data-viaje="${v.id}">
-      <div class="tv-cab"><span class="tv-bandera">${P.bandera(v.pais)}</span><div class="tv-txt"><b>${esc(v.ciudad || pais(v.pais).nombre)}</b><span>${rangoFechas(v.inicio, v.fin)}${esFuturo(v) ? ' · próximo' : ''}${v.sola ? ' · 🎒 sola' : ''}${v.extra && v.extra.valoracion ? ' · ' + '❤️'.repeat(v.extra.valoracion) : ''}</span></div></div>
+      <div class="tv-cab"><span class="tv-bandera">${P.bandera(v.pais)}</span><div class="tv-txt"><b>${esc(v.ciudad || pais(v.pais).nombre)}</b><span>${rangoFechas(v.inicio, v.fin)}${esFuturo(v) ? ' · próximo' : ''}${v.sola ? ' · 🎒 sola' : ''}${v.extra && v.extra.valoracion ? ' · ' + '❤️'.repeat(v.extra.valoracion) : ''}${EXTRAS3.compartido(v) ? ' · 👥' : ''}</span></div></div>
       ${fotos ? `<div class="tv-fotos">${fotos}${normales.length > 4 ? `<span class="mas-fotos">+${normales.length - 4}</span>` : ''}</div>` : ''}
       ${v.diario ? `<p class="tv-diario">${esc(v.diario.slice(0, 140))}${v.diario.length > 140 ? '…' : ''}</p>` : ''}
     </button>`;
@@ -250,7 +250,9 @@
     const n = dias(v.inicio, v.fin);
     const html = `
       <div class="pais-cab"><span class="pais-bandera">${P.bandera(v.pais)}</span><div><h2>${esc(v.ciudad || p.nombre)}</h2><div class="sub">${esc(v.ciudad ? p.nombre + ' · ' : '')}${rangoFechas(v.inicio, v.fin)}${n > 1 ? ` · ${n} días` : ''}</div></div></div>
-      <div class="galeria">${EXTRAS.fotosNormales(v).map((f, i) => `<button class="foto${f.instax ? ' instax' : ''}" data-i="${i}"><img src="${esc(f.thumbUrl)}" alt="" loading="lazy"></button>`).join('')}</div>
+      ${EXTRAS3.htmlViajeFamilia(v)}
+      <div class="galeria">${EXTRAS.fotosNormales(v).map((f, i) => `<button class="foto${f.instax ? ' instax' : ''}" data-i="${i}"><img src="${esc(f.thumbUrl)}" alt="" loading="lazy">${EXTRAS3.compartido(v) && f.autor ? `<span class="autor">${esc(S.nombreDe(f.autor).slice(0, 1))}</span>` : ''}</button>`).join('')}</div>
+      ${EXTRAS3.htmlDescargas(v)}
       ${v.diario ? `<div class="diario"><h3>Diario</h3><p>${esc(v.diario).replace(/\n/g, '<br>')}</p></div>` : ''}
       ${EXTRAS.htmlViajeExtra(v)}
       ${EXTRAS2.htmlViaje(v)}
@@ -259,15 +261,21 @@
         <button class="btn sec" data-editar>✏️ Editar</button>
       </div>
       <label class="check"><input type="checkbox" data-instax> Las fotos que añada son Instax escaneadas</label>
-      <button class="btn-link peligro" data-borrar>Borrar este viaje</button>`}`;
+      ${S.esMio(v) ? '<button class="btn-link peligro" data-borrar>Borrar este viaje</button>' : '<button class="btn-link peligro" data-salir-viaje>Salir de este viaje compartido</button>'}`}`;
     const h = abrirHoja(html, { completa: true, sinAnimacion });
     const refrescar = () => { if (!h.isConnected) { const actual = $$('.hoja-capa').pop(); if (actual) { actual.remove(); abrirViaje(v.id, true); } return; } const y = $('.hoja-cuerpo', h).scrollTop; h.remove(); const n = abrirViaje(v.id, true); if (n) $('.hoja-cuerpo', n).scrollTop = y; render(); };
     $$('.galeria .foto', h).forEach(b => b.onclick = () => verFoto(EXTRAS.fotosNormales(v).map(f => ({ v, f })), +b.dataset.i, refrescar));
     EXTRAS.enlazarViajeExtra(v, h, refrescar);
     EXTRAS2.enlazarViaje(v, h, refrescar);
+    EXTRAS3.enlazarDescargas(v, h);
     if (SOLO_LECTURA) return h;
     $('[data-editar]', h).onclick = () => { h.cerrar(); formViaje(v); };
-    $('[data-borrar]', h).onclick = async () => {
+    const sv = $('[data-salir-viaje]', h); if (sv) sv.onclick = async () => {
+      if (await confirmar(`¿Salir del viaje a ${v.ciudad || p.nombre}? Dejarás de verlo (las fotos que subiste se quedan en el viaje).`, 'Salir')) {
+        await S.salirDeViaje(v); $$('.hoja-capa').forEach(x => x.remove()); render(); toast('Has salido del viaje');
+      }
+    };
+    if ($('[data-borrar]', h)) $('[data-borrar]', h).onclick = async () => {
       if (await confirmar(`¿Borrar el viaje a ${v.ciudad || p.nombre} y sus fotos?`)) {
         await S.borrarViaje(v.id); h.cerrar(); $$('.hoja-capa').forEach(x => x.cerrar && x.cerrar()); render(); toast('Viaje borrado');
       }
@@ -299,11 +307,12 @@
       i = Math.max(0, Math.min(i, lista.length - 1));
       const { v, f } = lista[i];
       capa.innerHTML = `<img src="${esc(f.url || f.thumbUrl)}" alt="">
-        <div class="visor-barra">${SOLO_LECTURA ? '' : `<button data-instax>${f.instax ? '✓ Instax' : 'Marcar Instax'}</button><button data-borrar>🗑</button>`}<span>${i + 1}/${lista.length}</span><button data-cerrar>✕</button></div>
+        <div class="visor-barra">${SOLO_LECTURA ? '' : `<button data-bajar>⬇️</button><button data-instax>${f.instax ? '✓ Instax' : 'Marcar Instax'}</button>${S.esMio(v) || !f.autor || f.autor === S.datos.yo ? '<button data-borrar>🗑</button>' : ''}`}<span>${i + 1}/${lista.length}</span><button data-cerrar>✕</button></div>
         <div class="visor-pie">${P.bandera(v.pais)} ${esc(v.ciudad || pais(v.pais).nombre)} · ${rangoFechas(v.inicio, v.fin)}</div>
         ${i > 0 ? '<button class="visor-ant" data-ant>‹</button>' : ''}${i < lista.length - 1 ? '<button class="visor-sig" data-sig>›</button>' : ''}`;
       const on = (sel, fn) => { const b = $(sel, capa); if (b) b.onclick = e => { e.stopPropagation(); fn(); }; };
       on('[data-cerrar]', () => capa.remove());
+      on('[data-bajar]', () => EXTRAS3.descargar([f], (v.ciudad || v.pais).toLowerCase().replace(/\s+/g, '-')));
       on('[data-ant]', () => { i--; pintar(); });
       on('[data-sig]', () => { i++; pintar(); });
       on('[data-instax]', async () => { await S.marcarInstax(v, f, !f.instax); pintar(); if (alCambiar) alCambiar(); });
@@ -398,6 +407,7 @@
         <div class="fila2"><div><label>Desde</label><input type="date" class="campo" name="inicio" value="${v.inicio}"></div>
         <div><label>Hasta</label><input type="date" class="campo" name="fin" value="${v.fin}"></div></div>
         <label class="check"><input type="checkbox" name="sola" ${v.sola ? 'checked' : ''}> 🎒 Viajé sola</label>
+        ${EXTRAS3.htmlCompartirForm(v)}
         <label>¿Con quién fuiste?</label><input class="campo" name="con" placeholder="Laura, mamá… (separa con comas)" value="${esc((e.con || []).join(', '))}">
         <label>Diario</label><textarea class="campo" name="diario" rows="4" placeholder="Resumen del viaje. (Día a día lo puedes escribir dentro del viaje.)">${esc(v.diario)}</textarea>
         <details class="mas-campos"${e.comida || e.sitio || e.anecdota || e.cancion ? ' open' : ''}><summary>✨ Lo mejor del viaje y su canción</summary>
@@ -415,6 +425,7 @@
     const f = $('form', h);
     const sp = selectorPais($('[data-pais]', h), v.pais, c => v.pais = c);
     selectorLugar($('[data-lugar]', h), v, () => sp.get(), { alElegir: r => { if (!sp.get() && r.pais) sp.set(r.pais); } });
+    const miembrosSel = EXTRAS3.enlazarCompartirForm(h, v);
     let files = [];
     if (nuevo) $('[name=fotos]', f).onchange = e => { files = [...e.target.files]; $('.n-fotos', h).textContent = files.length ? `${files.length} foto${files.length > 1 ? 's' : ''} seleccionada${files.length > 1 ? 's' : ''}` : ''; };
     f.onsubmit = async e => {
@@ -429,6 +440,7 @@
       const btn = $('[type=submit]', f); btn.disabled = true; btn.textContent = 'Guardando…';
       try {
         const guardado = await S.guardarViaje(v);
+        const sel = miembrosSel(); if (sel && S.esMio(guardado)) await S.guardarMiembros(guardado, sel);
         if (files.length) await subirFotos(guardado, files, f.instax.checked);
         h.cerrar(); $$('.hoja-capa').forEach(x => x.remove());
         if (alGuardar) await alGuardar(guardado);
@@ -588,7 +600,7 @@
     $('#logros-num').textContent = `${ok} de ${LOGROS.length}`;
     const r = EXTRAS.rango(s.paises);
     $('#pasaporte-num').textContent = `${r.icono} ${r.nombre} · ${s.paises} ${s.paises === 1 ? 'país' : 'países'} · ${s.continentes} ${s.continentes === 1 ? 'continente' : 'continentes'}`;
-    const px = $('#pasaporte-extra'); px.innerHTML = EXTRAS.htmlPasaporteExtra(s) + '<div id="pasaporte-extra2"></div>'; EXTRAS.enlazarPasaporte(px);
+    const px = $('#pasaporte-extra'); px.innerHTML = EXTRAS3.htmlJuntos() + EXTRAS.htmlPasaporteExtra(s) + '<div id="pasaporte-extra2"></div>'; EXTRAS.enlazarPasaporte(px);
     const px2 = $('#pasaporte-extra2'); px2.innerHTML = EXTRAS2.htmlPasaporte(s); EXTRAS2.enlazarPasaporte(px2);
     $('#logros').innerHTML = LOGROS.map(l => {
       const hecho = l.ok(s);
@@ -750,7 +762,7 @@
   function renderMas() {
     if (SOLO_LECTURA) { $('#vista-mas').innerHTML = '<p class="vacio grande">Estás viendo un mapa compartido.</p>'; return; }
     const aj = S.datos.ajustes;
-    const mx = $('#mas-extra'); mx.innerHTML = EXTRAS.htmlMasExtra(calcular()); EXTRAS.enlazarMasExtra(mx);
+    const mx = $('#mas-extra'); mx.innerHTML = EXTRAS3.htmlMensajesFamilia() + EXTRAS.htmlMasExtra(calcular()); EXTRAS.enlazarMasExtra(mx); EXTRAS3.enlazarMensajesFamilia(mx);
     $('#avisos-mas').innerHTML = (S.MODO_PRUEBA ? '<div class="banner">🧪 Modo prueba · los datos se guardan solo en este navegador</div>' : '') + avisoInstalar();
     renderMaleta();
 
@@ -770,9 +782,10 @@
     }
     $('#cuenta').innerHTML = S.MODO_PRUEBA
       ? '<p class="nota">Modo prueba: los datos se guardan solo en este navegador.</p><button class="btn-link" data-demo>Cargar viajes de ejemplo</button>'
-      : `<p class="nota">Sesión iniciada como <b>${esc(S.email)}</b></p><button class="btn sec ancho" data-pass>Cambiar contraseña</button><button class="btn-link peligro" data-salir>Cerrar sesión</button>`;
+      : `<p class="nota">Sesión iniciada como <b>${esc(S.email)}</b></p><button class="btn sec ancho" data-perfil>👤 Mi perfil (nombre y ciudad)</button><button class="btn sec ancho" data-pass>Cambiar contraseña</button><button class="btn-link peligro" data-salir>Cerrar sesión</button>`;
     const dm = $('[data-demo]'); if (dm) dm.onclick = cargarEjemplo;
     const ps = $('[data-pass]'); if (ps) ps.onclick = cambiarPass;
+    const pf = $('[data-perfil]'); if (pf) pf.onclick = () => EXTRAS3.formPerfil(false);
     const sl = $('[data-salir]'); if (sl) sl.onclick = async () => { if (await confirmar('¿Cerrar sesión en este dispositivo?', 'Cerrar sesión')) { S.salir(); location.reload(); } };
   }
 
@@ -888,7 +901,10 @@
     render();
     EXTRAS.cargarComparacionGuardada().then(() => pintarMapa(calcular()));
     await introLista;
-    mensajeSorpresa();
+    await EXTRAS3.revisarPerfil();
+    render();
+    const conBaseDatos = await EXTRAS3.mensajesBienvenida();
+    if (!conBaseDatos) mensajeSorpresa();
   }
 
   async function iniciar() {
@@ -901,6 +917,7 @@
     document.documentElement.style.setProperty('--casa', C.COLORES.casa);
     $('#leyenda-casa').textContent = `Casa (${C.CASA.ciudad})`;
 
+    EXTRAS3.aplicarPerfil();
     if (C.ANIMACION_ENTRADA !== false && window.Intro) introLista = Intro.mostrar({ esperar: () => M.listo });
 
     $$('.tab').forEach(t => t.onclick = () => irA(t.dataset.vista));

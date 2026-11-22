@@ -1,6 +1,6 @@
 // Service worker: la app abre al instante y funciona sin conexión.
 // Si cambias algún archivo, sube este número para que los móviles se actualicen.
-const VERSION = 'mis-viajes-v5';
+const VERSION = 'mis-viajes-v6';
 const BASICOS = ['./', 'index.html', 'manifest.webmanifest', 'icons/icon-192.png'];
 const MAPA = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json';
 

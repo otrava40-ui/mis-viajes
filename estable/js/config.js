@@ -9,7 +9,7 @@ window.CONFIG = {
 
   // 2) Personalización
   APP_NOMBRE: 'Mis Viajes',           // Nombre que sale arriba y bajo el icono
-  NOMBRE: '',                          // Nombre de tu cuñada (para el saludo)
+  NOMBRE: 'Lara',                      // Nombre de tu cuñada (para el saludo)
   CASA: { ciudad: 'Calatayud', lat: 41.3536, lon: -1.6432, pais: 'ES' },
   CONTAR_PAIS_DE_CASA: true,           // España cuenta como país visitado
   ANIMACION_ENTRADA: true,             // Avión dando la vuelta al mundo al abrir
@@ -19,7 +19,7 @@ window.CONFIG = {
   MENSAJE_SORPRESA: {
     titulo: '¡Feliz Navidad! 🎄',
     texto: 'Esta app es para que guardes todos tus viajes en un solo sitio.\n\nYa te he dejado cargados los que conocía. A partir de ahora, cada sitio nuevo que visites ¡a rascar el mapa!\n\nQue este año sumes muchos sellos al pasaporte.',
-    firma: 'Sergio'
+    firma: 'Sergio y Blanca'
   },
 
   // 4) Mensajes escondidos de la familia: se desbloquean cuando visite ese país.
